@@ -103,6 +103,26 @@ export const useTareasViewModel = () => {
     }
   };
 
+  const cambiarEstadoAsignacion = async (assignmentId, estado) => {
+    setError(null);
+    try {
+      const token = await AuthRepository.getParentToken();
+      if (!token) throw new Error('No token found');
+
+      const data = await TareasRepository.cambiarEstadoAsignacion(token, assignmentId, estado);
+
+      setTareas(prev => prev.map(t => ({
+        ...t,
+        assignments: (t.assignments || []).map(a => a.id === assignmentId ? { ...a, ...data } : a),
+      })));
+
+      return { success: true, data };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   return {
     tareas,
     loading,
@@ -111,6 +131,7 @@ export const useTareasViewModel = () => {
     crearTarea,
     editarTarea,
     eliminarTarea,
-    asignarTarea
+    asignarTarea,
+    cambiarEstadoAsignacion
   };
 };

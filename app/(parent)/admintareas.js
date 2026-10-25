@@ -14,7 +14,7 @@ export default function AdminTareas() {
     const params = useLocalSearchParams();
     
     // ViewModels offline first
-    const { tareas: tasks, fetchTareas, eliminarTarea, asignarTarea, loading: loadingTasks } = useTareasViewModel();
+    const { tareas: tasks, fetchTareas, eliminarTarea, asignarTarea, cambiarEstadoAsignacion, loading: loadingTasks } = useTareasViewModel();
     const { hijos, fetchHijos } = useHijosViewModel();
 
     const [expandedTask, setExpandedTask] = useState(null);
@@ -83,12 +83,16 @@ export default function AdminTareas() {
         setUnassignModalVisible(false);
     };
 
+    const handleVerify = async (assignment) => {
+        await cambiarEstadoAsignacion(assignment.id, 'verified');
+    };
+
     // Helper functions for UI rendering mapping
     const getAssignedNames = (assignments) => {
         if (!assignments || !hijos) return [];
         return assignments.map(a => {
             const h = hijos.find(hijo => hijo.id === a.child_id);
-            return h ? h.nombre : 'Desconocido';
+            return { name: h ? h.nombre : 'Desconocido', assignment: a };
         });
     };
 
@@ -185,14 +189,24 @@ export default function AdminTareas() {
 
                                 {expandedTask === task.id && (
                                     <View style={styles.dropdownMenu}>
-                                        {assignedNames.map((user, idx) => (
+                                        {assignedNames.map((item, idx) => (
                                             <View key={idx}>
-                                                <TouchableOpacity style={styles.dropdownItem}>
-                                                    <Text style={styles.dropdownText}>{user}</Text>
-                                                    <TouchableOpacity onPress={() => openUnassignAlert(task, user)}>
-                                                        <View style={styles.dash} />
-                                                    </TouchableOpacity>
-                                                </TouchableOpacity>
+                                                <View style={styles.dropdownItem}>
+                                                    <Text style={styles.dropdownText}>{item.name}</Text>
+                                                    <View style={styles.dropdownItemActions}>
+                                                        {item.assignment?.status === 'completed' && (
+                                                            <TouchableOpacity testID={`verify-${item.assignment.id}`} onPress={() => handleVerify(item.assignment)}>
+                                                                <Ionicons name="checkmark-circle" size={22} color="#22C55E" />
+                                                            </TouchableOpacity>
+                                                        )}
+                                                        {item.assignment?.status === 'verified' && (
+                                                            <Ionicons name="checkmark-done-circle" size={22} color="#9CA3AF" />
+                                                        )}
+                                                        <TouchableOpacity onPress={() => openUnassignAlert(task, item.name)}>
+                                                            <View style={styles.dash} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
                                                 {idx < (assignedNames.length - 1 || 0) && <View style={styles.divider} />}
                                             </View>
                                         ))}
@@ -519,6 +533,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 8,
         paddingHorizontal: 8,
+    },
+    dropdownItemActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
     dropdownText: {
         fontFamily: Fonts.figtreebold,
