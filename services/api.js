@@ -173,6 +173,21 @@ export async function generarCodigoVinculacion(token, hijoId) {
     return data;
 }
 
+// Login del hijo (vincula el dispositivo usando el codigo generado por el padre)
+export async function loginHijo(codigo) {
+    // Hace una peticion POST a la API para iniciar sesión con el código de vinculación
+    const response = await fetch(`${API_URL}/auth_hijos/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.detail || "Código inválido o expirado");
+    }
+    return data;
+}
+
 // Obtener perfil del hijo
 export async function obtenerPerfilHijo(token) {
     // Hace una peticion GET a la API para obtener el perfil del hijo
