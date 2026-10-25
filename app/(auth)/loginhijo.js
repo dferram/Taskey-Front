@@ -1,5 +1,5 @@
 import { loginHijo } from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthRepository } from '../../repositories/AuthRepository';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -31,9 +31,10 @@ export default function LoginHijo() {
         try {
             const data = await loginHijo(codigo);
 
-            // Guarda el token y datos del hijo en AsyncStorage
-            await AsyncStorage.setItem('child_token', data.access_token);
-            await AsyncStorage.setItem('child_data', JSON.stringify(data.child));
+            // Guarda el token y datos del hijo (mismo wrapper que usa el flujo de padre,
+            // para que AuthRepository.getChildToken()/getChildData() los puedan leer despues)
+            await AuthRepository.saveChildToken(data.access_token);
+            await AuthRepository.saveChildData(data.child);
 
             router.replace('/perfilhijo');
         } catch (error) {
@@ -64,13 +65,14 @@ export default function LoginHijo() {
                         style={styles.input}
                         placeholder="Código"
                         placeholderTextColor={Colors.darkgraytext}
-                        keyboardType="numeric"
+                        autoCapitalize="none"
+                        autoCorrect={false}
                         value={codigo}
                         onChangeText={setCodigo}
-                        maxLength={6}
+                        maxLength={10}
                     />
 
-                    <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} disabled={loading} onPress={handleIniciarSesion}>
+                    <TouchableOpacity testID="loginHijoButton" style={[styles.button, loading && styles.buttonDisabled]} disabled={loading} onPress={handleIniciarSesion}>
                         <Text style={styles.buttonText}>{loading ? "Cargando..." : "Iniciar sesión"}</Text>
                     </TouchableOpacity>
                 </View>

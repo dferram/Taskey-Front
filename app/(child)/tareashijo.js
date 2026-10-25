@@ -1,77 +1,108 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
+import { useTareasHijoViewModel } from "../../viewmodels/useTareasHijoViewModel";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const DUMMY_TASKS = [
-    {
-        id: '1',
-        title: 'Tender la cama',
-        description: 'Tender la cama correctamente y acomodar los peluches',
-        deadline: 'Hoy 6:00pm',
-        status: 'completada',
-        statusText: 'Solicitud de confirmación enviada',
-        titleColor: '#FF8A3D',
-        dayId: 1, // Viernes
-        keys: '25',
-        duration: '10 minutos'
-    },
-    {
-        id: '2',
-        title: 'Hacer ejercicio',
-        description: 'Hacer al menos 30 minutos de ejercicio al aire libre',
-        deadline: 'Hoy 6:00pm',
-        status: 'pendiente',
-        statusText: 'Pendiente',
-        titleColor: '#00AEEF',
-        dayId: 1, // Viernes
-        keys: '20',
-        duration: '15 minutos'
-    },
-    {
-        id: '3',
-        title: 'Lavar los trastes',
-        description: 'Ayudar a mamá con los trastes después de la cena',
-        deadline: 'Sábado 8:00pm',
-        status: 'pendiente',
-        statusText: 'Pendiente',
-        titleColor: '#8844EE',
-        dayId: 2, // Sábado
-        keys: '30',
-        duration: '20 minutos'
-    },
-    {
-        id: '4',
-        title: 'Estudiar matemáticas',
-        description: 'Repasar las tablas de multiplicar por 15 minutos',
-        deadline: 'Domingo 4:00pm',
-        status: 'completada',
-        statusText: 'Completada',
-        titleColor: '#ADD633',
-        dayId: 3, // Domingo
-        keys: '40',
-        duration: '30 minutos'
-    }
-];
+const NOMBRES_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const COLORES_TITULO = ['#FF8A3D', '#00AEEF', '#8844EE', '#ADD633', '#FF009B', '#F59E0B'];
+const TEXTO_ESTADO = {
+    assigned: 'Pendiente',
+    in_progress: 'En progreso',
+    completed: 'Solicitud de confirmación enviada',
+    verified: 'Completada',
+};
 
-const DAYS = [
-    { id: 1, day: 'Viernes', num: 2 },
-    { id: 2, day: 'Sábado', num: 3 },
-    { id: 3, day: 'Domingo', num: 4 },
-    { id: 4, day: 'Lunes', num: 5 },
-];
+// Genera los 4 "chips" de día a partir de hoy, para no depender de una fecha fija
+function generarDias() {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return Array.from({ length: 4 }, (_, i) => {
+        const fecha = new Date(hoy);
+        fecha.setDate(hoy.getDate() + i);
+        return { id: i + 1, day: NOMBRES_DIAS[fecha.getDay()], num: fecha.getDate(), date: fecha };
+    });
+}
+
+function formatearFechaLimite(dueDate, dueTime) {
+    if (!dueDate) return 'Sin fecha límite';
+    try {
+        const [year, month, day] = dueDate.split('-').map(Number);
+        const fecha = new Date(year, month - 1, day);
+        const fechaStr = `${NOMBRES_DIAS[fecha.getDay()]} ${day}/${month}`;
+        return dueTime ? `${fechaStr} ${dueTime.slice(0, 5)}` : fechaStr;
+    } catch {
+        return dueDate;
+    }
+}
+
+function formatearDuracion(horas, minutos) {
+    const h = horas || 0;
+    const m = minutos || 0;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h} hora${h > 1 ? 's' : ''}`;
+    return `${m} minutos`;
+}
+
+// Ubica la tarea en uno de los 4 dias visibles; si esta fuera de rango (vencida o muy
+// lejana) se muestra en el dia mas cercano para que nunca desaparezca de la lista.
+function calcularDayId(dueDate) {
+    if (!dueDate) return 1;
+    try {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const [year, month, day] = dueDate.split('-').map(Number);
+        const fecha = new Date(year, month - 1, day);
+        const diffDias = Math.round((fecha - hoy) / 86400000);
+        if (diffDias < 0) return 1;
+        if (diffDias > 3) return 4;
+        return diffDias + 1;
+    } catch {
+        return 1;
+    }
+}
+
+function mapearTarea(task, index) {
+    const assignment = (task.assignments || [])[0];
+    const status = assignment?.status || 'assigned';
+    const esCompletada = status === 'completed' || status === 'verified';
+
+    return {
+        id: assignment?.id || task.id,
+        title: task.title,
+        description: task.description || '',
+        deadline: formatearFechaLimite(task.due_date, task.due_time),
+        status: esCompletada ? 'completada' : 'pendiente',
+        statusText: TEXTO_ESTADO[status] || 'Pendiente',
+        estadoAsignacion: status,
+        titleColor: COLORES_TITULO[index % COLORES_TITULO.length],
+        dayId: calcularDayId(task.due_date),
+        keys: String(task.reward_keys ?? 0),
+        duration: formatearDuracion(task.duration_hours, task.duration_minutes),
+    };
+}
 
 export default function TareasHijo() {
     const router = useRouter();
     const [filter, setFilter] = useState('Todas');
     const [selectedDayId, setSelectedDayId] = useState(1);
     const [isFilterVisible, setIsFilterVisible] = useState(false);
+    const { tareas, loading, fetchTareas } = useTareasHijoViewModel();
 
-    const filteredTasks = DUMMY_TASKS.filter(task => {
+    useFocusEffect(
+        useCallback(() => {
+            fetchTareas();
+        }, [fetchTareas])
+    );
+
+    const DAYS = useMemo(() => generarDias(), []);
+    const misiones = useMemo(() => tareas.map(mapearTarea), [tareas]);
+
+    const filteredTasks = misiones.filter(task => {
         const matchesDay = task.dayId === selectedDayId;
         if (!matchesDay) return false;
 
@@ -100,7 +131,8 @@ export default function TareasHijo() {
                 deadline: task.deadline,
                 color: task.titleColor,
                 keys: task.keys,
-                duration: task.duration
+                duration: task.duration,
+                status: task.estadoAsignacion
             }
         });
     };
@@ -174,7 +206,9 @@ export default function TareasHijo() {
 
                 {/* Lista de Tareas */}
                 <View style={styles.taskList}>
-                    {filteredTasks.length > 0 ? (
+                    {loading && misiones.length === 0 ? (
+                        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 30 }} />
+                    ) : filteredTasks.length > 0 ? (
                         filteredTasks.map((task) => (
                             <TouchableOpacity
                                 key={task.id}

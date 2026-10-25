@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   RECOMPENSAS: '@recompensas',
   HIJOS: '@hijos',
   TAREAS: '@tareas',
+  TAREAS_HIJO: '@tareas_hijo',
   POLICIES: '@policies',
   PARENT_TOKEN: 'parent_token',
   PARENT_DATA: 'parent_data',

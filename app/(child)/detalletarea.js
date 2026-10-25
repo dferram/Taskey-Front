@@ -1,8 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from "react";
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
+import { useTareasHijoViewModel } from "../../viewmodels/useTareasHijoViewModel";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -10,6 +11,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function DetalleTarea() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { cambiarEstado } = useTareasHijoViewModel();
 
     const task = {
         title: params.title || 'Misión',
@@ -22,7 +24,8 @@ export default function DetalleTarea() {
 
     const [hasEvidence, setHasEvidence] = useState(!!params.photoUri);
     const [evidenceUri, setEvidenceUri] = useState(params.photoUri || null);
-    const [isSent, setIsSent] = useState(false);
+    const [isSent, setIsSent] = useState(params.status === 'completed' || params.status === 'verified');
+    const [sending, setSending] = useState(false);
 
     // Sync evidence state if param changes
     useEffect(() => {
@@ -46,16 +49,38 @@ export default function DetalleTarea() {
         setHasEvidence(false);
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!evidenceUri) {
-            alert("Por favor, toma una foto de la evidencia antes de enviar.");
+            Alert.alert("Falta evidencia", "Por favor, toma una foto de la evidencia antes de enviar.");
             return;
         }
-        setIsSent(true);
+        if (!params.id) {
+            setIsSent(true);
+            return;
+        }
+        setSending(true);
+        const result = await cambiarEstado(params.id, 'completed');
+        setSending(false);
+        if (result.success) {
+            setIsSent(true);
+        } else {
+            Alert.alert("Error", result.error || "No se pudo enviar la misión, intenta de nuevo.");
+        }
     };
 
-    const handleCancelSend = () => {
-        setIsSent(false);
+    const handleCancelSend = async () => {
+        if (!params.id) {
+            setIsSent(false);
+            return;
+        }
+        setSending(true);
+        const result = await cambiarEstado(params.id, 'in_progress');
+        setSending(false);
+        if (result.success) {
+            setIsSent(false);
+        } else {
+            Alert.alert("Error", result.error || "No se pudo anular el envío, intenta de nuevo.");
+        }
     };
 
     return (
@@ -114,8 +139,9 @@ export default function DetalleTarea() {
                             style={styles.cancelSendButton}
                             onPress={handleCancelSend}
                             activeOpacity={0.8}
+                            disabled={sending}
                         >
-                            <Text style={styles.cancelSendButtonText}>Anular envío</Text>
+                            <Text style={styles.cancelSendButtonText}>{sending ? 'Anulando...' : 'Anular envío'}</Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
@@ -150,12 +176,13 @@ export default function DetalleTarea() {
                             ]}
                             onPress={handleSend}
                             activeOpacity={0.8}
+                            disabled={sending}
                         >
                             <Text style={[
                                 styles.sendButtonText,
                                 !evidenceUri && styles.sendButtonTextDisabled,
                                 evidenceUri && styles.sendButtonTextActive
-                            ]}>Enviar</Text>
+                            ]}>{sending ? 'Enviando...' : 'Enviar'}</Text>
                         </TouchableOpacity>
                     </>
                 )}

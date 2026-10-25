@@ -1,6 +1,15 @@
 import { STORAGE_KEYS } from '../storage/keys';
 import { storage } from '../storage/storage';
-import { listarTareas, crearTarea, editarTarea, eliminarTarea, asignarTarea } from '../services/api';
+import {
+  listarTareas,
+  crearTarea,
+  editarTarea,
+  eliminarTarea,
+  asignarTarea,
+  listarTareasHijo,
+  cambiarEstadoAsignacion,
+  cambiarEstadoAsignacionHijo,
+} from '../services/api';
 import { Tarea } from '../models/Tarea';
 
 export const TareasRepository = {
@@ -64,5 +73,46 @@ export const TareasRepository = {
     await storage.setItem(STORAGE_KEYS.TAREAS, updatedTareas);
     
     return assignment;
+  },
+
+  // Verificar/confirmar una asignacion (uso del padre)
+  cambiarEstadoAsignacion: async (token: string, assignmentId: string, estado: string): Promise<any> => {
+    const updated = await cambiarEstadoAsignacion(token, assignmentId, estado);
+
+    const currentTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS) || [];
+    const updatedTareas = currentTareas.map(t => ({
+      ...t,
+      assignments: (t.assignments || []).map(a => a.id === assignmentId ? { ...a, ...updated } : a),
+    }));
+    await storage.setItem(STORAGE_KEYS.TAREAS, updatedTareas);
+
+    return updated;
+  },
+
+  // -- Lado del hijo --
+
+  getTareasHijo: async (token: string): Promise<Tarea[]> => {
+    try {
+      const apiTareas = await listarTareasHijo(token);
+      await storage.setItem(STORAGE_KEYS.TAREAS_HIJO, apiTareas);
+      return apiTareas;
+    } catch (error) {
+      console.log('[TareasRepository] Fallo la API (hijo), leyendo de Storage Local');
+      const cachedTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS_HIJO);
+      return cachedTareas || [];
+    }
+  },
+
+  cambiarEstadoAsignacionHijo: async (token: string, assignmentId: string, estado: string): Promise<any> => {
+    const updated = await cambiarEstadoAsignacionHijo(token, assignmentId, estado);
+
+    const currentTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS_HIJO) || [];
+    const updatedTareas = currentTareas.map(t => ({
+      ...t,
+      assignments: (t.assignments || []).map(a => a.id === assignmentId ? { ...a, ...updated } : a),
+    }));
+    await storage.setItem(STORAGE_KEYS.TAREAS_HIJO, updatedTareas);
+
+    return updated;
   }
 };

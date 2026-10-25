@@ -1,8 +1,9 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { obtenerPerfilHijo } from '../../services/api';
+import { AuthRepository } from '../../repositories/AuthRepository';
+import { useTareasHijoViewModel } from '../../viewmodels/useTareasHijoViewModel';
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
@@ -12,23 +13,30 @@ export default function PerfilHijo() {
     const router = useRouter();
     const [childData, setChildData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { tareas, fetchTareas } = useTareasHijoViewModel();
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchTareas();
+        }, [fetchTareas])
+    );
 
     useEffect(() => {
         const cargarPerfil = async () => {
             try {
-                // Leer datos guardados en AsyncStorage (cache)
-                const cachedData = await AsyncStorage.getItem('child_data');
+                // Leer datos guardados en cache
+                const cachedData = await AuthRepository.getChildData();
                 if (cachedData) {
-                    setChildData(JSON.parse(cachedData));
+                    setChildData(cachedData);
                 }
 
                 // Intentar obtener datos frescos del servidor
-                const token = await AsyncStorage.getItem('child_token');
+                const token = await AuthRepository.getChildToken();
                 if (token) {
                     const perfil = await obtenerPerfilHijo(token);
                     setChildData(perfil);
                     // Actualizar cache
-                    await AsyncStorage.setItem('child_data', JSON.stringify(perfil));
+                    await AuthRepository.saveChildData(perfil);
                 }
             } catch (error) {
                 // Si falla el API, se queda con los datos del cache
@@ -40,6 +48,10 @@ export default function PerfilHijo() {
 
         cargarPerfil();
     }, []);
+
+    const pendientesCount = tareas.filter(t =>
+        (t.assignments || []).some(a => a.status === 'assigned' || a.status === 'in_progress')
+    ).length;
 
     if (loading && !childData) {
         return (
@@ -96,7 +108,7 @@ export default function PerfilHijo() {
                         onPress={() => router.push('/tareashijo')}
                     >
                         <Text style={[styles.cardTitle, { color: '#EA580C' }]}>Misiones</Text>
-                        <Text style={styles.cardSubtitle}>5 pendientes</Text>
+                        <Text style={styles.cardSubtitle}>{pendientesCount} pendiente{pendientesCount === 1 ? '' : 's'}</Text>
                         <View style={[styles.indicator, { backgroundColor: '#F97316' }]} />
                     </TouchableOpacity>
 

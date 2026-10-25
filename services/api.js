@@ -255,6 +255,47 @@ export async function eliminarTarea(token, tareaId) {
     return true;
 }
 
+// Listar las tareas asignadas al hijo autenticado
+export async function listarTareasHijo(token) {
+    const response = await fetch(`${API_URL}/tareas/mis-tareas`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Error al obtener tus tareas");
+    return data;
+}
+
+// Cambiar el estado de una asignacion (uso del padre: confirmar/verificar)
+export async function cambiarEstadoAsignacion(token, assignmentId, estado) {
+    const response = await fetch(`${API_URL}/tareas/asignaciones/${assignmentId}/estado`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: estado })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Error al actualizar el estado de la tarea");
+    return data;
+}
+
+// Cambiar el estado de una asignacion (uso del hijo: en progreso/completada)
+export async function cambiarEstadoAsignacionHijo(token, assignmentId, estado) {
+    const response = await fetch(`${API_URL}/tareas/asignaciones/${assignmentId}/estado/child`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: estado })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Error al actualizar el estado de la tarea");
+    return data;
+}
+
 export async function asignarTarea(token, tareaId, childId) {
     const response = await fetch(`${API_URL}/tareas/${tareaId}/asignar`, {
         method: "POST",
