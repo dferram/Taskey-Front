@@ -1,57 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
+import { useNotificacionesViewModel } from "../../viewmodels/useNotificacionesViewModel";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const NOTIFICACIONES = [
-    {
-        id: '1',
-        type: 'mision_nueva',
-        content: '¡Nueva misión asignada! Completa \'Tender la cama\'',
-        time: 'Hace 5 minutos',
-        icon: require('../../assets/images/tareas.png'),
-        hasAction: true,
-    },
-    {
-        id: '2',
-        type: 'mision_cumplida',
-        content: '¡Misión cumplida! Has completado \'Hacer ejercicio\'',
-        time: 'Hace 20 minutos',
-        icon: 'checkmark-circle',
-        iconColor: '#ADD633',
-    },
-    {
-        id: '3',
-        type: 'tiempo_alerta',
-        content: 'El tiempo en pantalla está por terminar en 5 minutos',
-        time: 'Hace 5 horas',
-        icon: 'warning',
-        iconColor: '#FACC15',
-    },
-    {
-        id: '4',
-        type: 'tiempo_inicio',
-        content: '¡Tu tiempo en pantalla ha comenzado! Tienes 30 minutos a partir de ahora',
-        time: 'Hace 6 horas',
-        icon: 'time',
-        iconColor: '#00AEEF',
-    },
-    {
-        id: '5',
-        type: 'felicidades',
-        content: '¡FELICIDADES! Has dominado todas las misiones de la semana. Tu recompensa te está esperando',
-        time: 'Hace 6 horas',
-        icon: 'star',
-        iconColor: '#FACC15',
-        hasAction: true,
+// Mapeo entre los tipos del backend y el icono/color que se muestra en la tarjeta
+const TIPO_CONFIG = {
+    TAREA_CONFIRMADA: { icon: 'checkmark-circle', iconColor: '#ADD633' },
+    TAREA_COMPLETADA: { icon: 'checkmark-circle', iconColor: '#ADD633' },
+    TAREA_FALLIDA: { icon: 'close-circle', iconColor: '#EF4444' },
+    TIEMPO_LIMITE: { icon: 'warning', iconColor: '#FACC15' },
+    META_SEMANAL: { icon: 'star', iconColor: '#FACC15' },
+};
+
+function formatearFecha(fechaStr) {
+    try {
+        const fecha = new Date(fechaStr);
+        const ahora = new Date();
+        const diffMs = ahora - fecha;
+        const diffMin = Math.floor(diffMs / 60000);
+        const diffHrs = Math.floor(diffMin / 60);
+        const diffDias = Math.floor(diffHrs / 24);
+
+        if (diffMin < 1) return 'Ahora mismo';
+        if (diffMin < 60) return `Hace ${diffMin} min`;
+        if (diffHrs < 24) return `Hace ${diffHrs} hora${diffHrs > 1 ? 's' : ''}`;
+        if (diffDias === 1) return 'Ayer';
+        return `Hace ${diffDias} días`;
+    } catch {
+        return '';
     }
-];
+}
 
 export default function NotificacionesHijo() {
     const router = useRouter();
+    const { notificaciones, loading, fetchNotificaciones, marcarLeidas } = useNotificacionesViewModel();
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchNotificaciones();
+        }, [fetchNotificaciones])
+    );
+
+    const handleTocarNoti = (noti) => {
+        if (!noti.leida) marcarLeidas([noti.id]);
+        if (noti.tipo === 'TAREA_CONFIRMADA' || noti.tipo === 'TAREA_COMPLETADA') router.push('/tareashijo');
+        if (noti.tipo === 'META_SEMANAL') router.push('/recompensashijo');
+    };
 
     return (
         <View style={styles.container}>
@@ -62,37 +61,35 @@ export default function NotificacionesHijo() {
             >
                 <Text style={styles.headerTitle}>Notificaciones</Text>
 
-                <View style={styles.notisList}>
-                    {NOTIFICACIONES.map((noti) => (
-                        <View key={noti.id} style={styles.notiCard}>
-                            <View style={styles.notiHeader}>
-                                <View style={styles.iconWrapper}>
-                                    {noti.type === 'mision_nueva' ? (
-                                        <Image source={noti.icon} style={styles.miniIcon} resizeMode="contain" tintColor={Colors.primary} />
-                                    ) : (
-                                        <Ionicons name={noti.icon} size={40} color={noti.iconColor} />
-                                    )}
-                                </View>
-                                <View style={styles.textWrapper}>
-                                    <Text style={styles.notiText}>{noti.content}</Text>
-                                    <Text style={styles.notiTime}>{noti.time}</Text>
-                                </View>
-                            </View>
-
-                            {noti.hasAction && (
+                {loading && notificaciones.length === 0 ? (
+                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 30 }} />
+                ) : notificaciones.length === 0 ? (
+                    <Text style={styles.emptyText}>No tienes notificaciones todavía</Text>
+                ) : (
+                    <View style={styles.notisList}>
+                        {notificaciones.map((noti) => {
+                            const config = TIPO_CONFIG[noti.tipo] || TIPO_CONFIG.TAREA_CONFIRMADA;
+                            return (
                                 <TouchableOpacity
-                                    style={styles.actionButton}
-                                    onPress={() => {
-                                        if (noti.type === 'mision_nueva') router.push('/tareashijo');
-                                        if (noti.type === 'felicidades') router.push('/recompensashijo');
-                                    }}
+                                    key={noti.id}
+                                    style={[styles.notiCard, !noti.leida && styles.notiCardNoLeida]}
+                                    onPress={() => handleTocarNoti(noti)}
+                                    activeOpacity={0.8}
                                 >
-                                    <Text style={styles.actionButtonText}>Mostrar detalles</Text>
+                                    <View style={styles.notiHeader}>
+                                        <View style={styles.iconWrapper}>
+                                            <Ionicons name={config.icon} size={40} color={config.iconColor} />
+                                        </View>
+                                        <View style={styles.textWrapper}>
+                                            <Text style={styles.notiText}>{noti.mensaje}</Text>
+                                            <Text style={styles.notiTime}>{formatearFecha(noti.fecha_creacion)}</Text>
+                                        </View>
+                                    </View>
                                 </TouchableOpacity>
-                            )}
-                        </View>
-                    ))}
-                </View>
+                            );
+                        })}
+                    </View>
+                )}
 
                 <View style={{ height: 100 }} />
             </ScrollView>
@@ -130,6 +127,17 @@ const styles = StyleSheet.create({
         padding: 15,
         ...Shadows.button,
         shadowOpacity: 0.1,
+    },
+    notiCardNoLeida: {
+        borderLeftWidth: 4,
+        borderLeftColor: Colors.primary,
+    },
+    emptyText: {
+        fontSize: 16,
+        fontFamily: Fonts.figtreeRegular,
+        color: '#9CA3AF',
+        textAlign: 'center',
+        marginTop: 40,
     },
     notiHeader: {
         flexDirection: 'row',
