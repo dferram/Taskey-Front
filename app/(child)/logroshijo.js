@@ -1,118 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from "react";
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import BarraNavegacion from "../../components/BarraNavegacion";
-import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
-
+import { useState } from 'react';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BarraNavegacion from '../../components/BarraNavegacion';
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { Colors, Fonts, Shadows } from '../../styles/globalStyles';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const MIOS_ACHIEVEMENTS = [
-    {
-        id: '1',
-        title: '¡Campeón Olímpico!',
-        description: 'Cumplimiento de todo el ejercicio por una semana',
-        image: require('../../assets/images/capicons.png'),
-        titleColor: '#ADD633'
-    },
-    {
-        id: '2',
-        title: 'Cerebrito',
-        description: 'Cumplimiento de 10 actividades educativas en una semana',
-        image: require('../../assets/images/capifer.png'),
-        titleColor: '#00AEEF'
-    },
-    {
-        id: '3',
-        title: '¿Flash?',
-        description: 'Cumplimiento de 5 misiones en menos de 2 horas',
-        image: require('../../assets/images/capiangel.png'),
-        titleColor: '#FF8A3D'
-    }
-];
-
-const POR_CUMPLIR_ACHIEVEMENTS = [
-    {
-        id: '4',
-        title: 'Superhéroe',
-        description: 'Cumplimiento con una misión social',
-        image: require('../../assets/images/capihijo.png'),
-        titleColor: '#AAD633'
-    }
-];
-
+import { obtenerLogrosHijo } from '../../services/api';
+import { avatarImage } from '../../constants/avatars';
 export default function LogrosHijo() {
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState('Míos');
-
-    const handleBackPress = () => router.back();
-
-    const currentAchievements = activeTab === 'Míos' ? MIOS_ACHIEVEMENTS : POR_CUMPLIR_ACHIEVEMENTS;
-
-    return (
-        <View style={styles.container}>
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                <View style={styles.headerRow}>
-                    <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={28} color="black" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Logros</Text>
-                </View>
-
-                {/* Tabs */}
-                <View style={styles.tabsContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'Míos' ? styles.tabActive : styles.tabInactive]}
-                        onPress={() => setActiveTab('Míos')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'Míos' ? styles.tabTextActive : styles.tabTextInactive]}>Míos</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'Por cumplir' ? styles.tabActive : styles.tabInactive]}
-                        onPress={() => setActiveTab('Por cumplir')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'Por cumplir' ? styles.tabTextActive : styles.tabTextInactive]}>Por cumplir</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Achievements Content Container */}
-                <View style={[
-                    styles.achievementsContainer,
-                    activeTab === 'Por cumplir' ? { borderTopLeftRadius: 30 } : { borderTopLeftRadius: 0 }
-                ]}>
-                    {currentAchievements.map((achievement) => (
-                        <View key={achievement.id} style={styles.achievementCard}>
-                            <View style={styles.imageWrapper}>
-                                <Image
-                                    source={achievement.image}
-                                    style={styles.achievementImage}
-                                    resizeMode="contain"
-                                />
-                            </View>
-                            <View style={styles.textContainer}>
-                                <Text style={[styles.achievementTitle, { color: achievement.titleColor }]}>
-                                    {achievement.title}
-                                </Text>
-                                <Text style={styles.achievementDescription}>
-                                    {achievement.description}
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
-                    <View style={{ height: 40 }} />
-                </View>
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
-
-            <BarraNavegacion activeTab="inicio" userType="hijo" />
-        </View>
-    );
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('Míos');
+  const { data, loading, error, reload } = useBackendResource(obtenerLogrosHijo);
+  const items = (data || []).filter(item => item.obtenido === (activeTab === 'Míos'));
+  return <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><Ionicons name="chevron-back" size={28} /></TouchableOpacity>
+        <Text style={styles.headerTitle}>Logros</Text>
+      </View>
+      <View style={styles.tabsContainer}>{['Míos', 'Por cumplir'].map(tab =>
+        <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab ? styles.tabActive : styles.tabInactive]}>
+          <Text style={styles.tabText}>{tab}</Text>
+        </TouchableOpacity>)}</View>
+      <BackendState loading={loading} error={error} onRetry={reload} />
+      {data && <View style={styles.achievementsContainer}>
+        {!items.length && <Text style={{ padding: 20 }}>Todavía no hay logros en esta sección.</Text>}
+        {items.map(item => <View key={item.id} style={styles.achievementCard}>
+          <View style={styles.imageWrapper}><Image source={avatarImage(item.avatar_id)} style={styles.achievementImage} resizeMode="contain" /></View>
+          <View style={styles.textContainer}>
+            <Text style={styles.achievementTitle}>{item.title}</Text>
+            <Text style={styles.achievementDescription}>{item.description}</Text>
+            <Text>{item.actual} / {item.objetivo}</Text>
+          </View>
+        </View>)}
+      </View>}
+    </ScrollView>
+    <BarraNavegacion activeTab="inicio" userType="hijo" />
+  </View>;
 }
 
 const styles = StyleSheet.create({

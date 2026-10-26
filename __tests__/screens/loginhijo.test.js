@@ -1,3 +1,4 @@
+jest.mock('../../hooks/usePushNotifications', () => ({ registerForPushNotifications: jest.fn() }));
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react-native';
 import LoginHijo from '../../app/(auth)/loginhijo';
 import { loginHijo } from '../../services/api';

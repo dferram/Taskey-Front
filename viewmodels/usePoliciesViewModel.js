@@ -18,6 +18,7 @@ export function usePoliciesViewModel() {
       const data = await PoliciesRepository.getPolicy(token, childId);
       setPolicy(data);
     } catch (err) {
+      setPolicy(null);
       setError(err.message);
     } finally {
       setLoading(false);

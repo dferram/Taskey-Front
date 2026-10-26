@@ -13,10 +13,7 @@ export const HijosRepository = {
       await storage.setItem(STORAGE_KEYS.HIJOS, apiHijos);
       return apiHijos;
     } catch (error) {
-      // Si la API falla, devuelve los datos del cache local
-      console.log('[HijosRepository] Fallo la API, leyendo de Storage Local');
-      const cachedHijos = await storage.getItem<Hijo[]>(STORAGE_KEYS.HIJOS);
-      return cachedHijos || [];
+      throw error;
     }
   },
 

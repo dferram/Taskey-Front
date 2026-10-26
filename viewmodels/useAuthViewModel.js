@@ -1,3 +1,4 @@
+import { registerForPushNotifications } from '../hooks/usePushNotifications';
 import { useState } from 'react';
 import { AuthRepository } from '../repositories/AuthRepository';
 
@@ -19,6 +20,7 @@ export const useAuthViewModel = () => {
         await AuthRepository.saveParentData(data.padre);
       }
       
+      void registerForPushNotifications();
       return { success: true, data };
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión');
@@ -42,6 +44,7 @@ export const useAuthViewModel = () => {
         await AuthRepository.saveParentData(data.padre);
       }
       
+      void registerForPushNotifications();
       return { success: true, data };
     } catch (err) {
       setError(err.message || 'Error al registrarse');

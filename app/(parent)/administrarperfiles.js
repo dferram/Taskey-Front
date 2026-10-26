@@ -1,3 +1,4 @@
+import BackendState from '../../components/BackendState';
 import { useHijosViewModel } from '../../viewmodels/useHijosViewModel';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +17,7 @@ export default function AdministrarPerfiles() {
     const params = useLocalSearchParams();
     
     // ViewModel logic
-    const { hijos: profiles, loading, fetchHijos, eliminarHijo, generarCodigoVinculacion } = useHijosViewModel();
+    const { hijos: profiles, loading, error, fetchHijos, eliminarHijo, generarCodigoVinculacion } = useHijosViewModel();
 
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdProfileName, setCreatedProfileName] = useState('');
@@ -162,6 +163,7 @@ export default function AdministrarPerfiles() {
 
     return (
         <View style={styles.container}>
+            <BackendState error={error} onRetry={fetchHijos} />
             {/* Custom Decorated Header */}
             <View style={styles.headerBackground}>
                 <View style={styles.circlePink} />

@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../storage/keys';
 import { storage } from '../storage/storage';
 import {
+  desasignarTarea,
   listarTareas,
   crearTarea,
   editarTarea,
@@ -13,6 +14,7 @@ import {
 import { Tarea } from '../models/Tarea';
 
 export const TareasRepository = {
+  desasignarTarea: async (token: string, id: string): Promise<void> => { await desasignarTarea(token, id); },
   getTareas: async (token: string): Promise<Tarea[]> => {
     try {
       // Intenta obtener datos de la API
@@ -22,9 +24,7 @@ export const TareasRepository = {
       await storage.setItem(STORAGE_KEYS.TAREAS, apiTareas);
       return apiTareas;
     } catch (error) {
-      console.log('[TareasRepository] Fallo la API, leyendo de Storage Local');
-      const cachedTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS);
-      return cachedTareas || [];
+      throw error;
     }
   },
 
@@ -97,14 +97,12 @@ export const TareasRepository = {
       await storage.setItem(STORAGE_KEYS.TAREAS_HIJO, apiTareas);
       return apiTareas;
     } catch (error) {
-      console.log('[TareasRepository] Fallo la API (hijo), leyendo de Storage Local');
-      const cachedTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS_HIJO);
-      return cachedTareas || [];
+      throw error;
     }
   },
 
-  cambiarEstadoAsignacionHijo: async (token: string, assignmentId: string, estado: string): Promise<any> => {
-    const updated = await cambiarEstadoAsignacionHijo(token, assignmentId, estado);
+  cambiarEstadoAsignacionHijo: async (token: string, assignmentId: string, estado: string, evidencia?: string): Promise<any> => {
+    const updated = await cambiarEstadoAsignacionHijo(token, assignmentId, estado, evidencia);
 
     const currentTareas = await storage.getItem<Tarea[]>(STORAGE_KEYS.TAREAS_HIJO) || [];
     const updatedTareas = currentTareas.map(t => ({

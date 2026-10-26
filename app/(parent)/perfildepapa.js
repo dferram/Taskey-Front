@@ -1,3 +1,4 @@
+import BackendState from '../../components/BackendState';
 import { usePadreViewModel } from '../../viewmodels/usePadreViewModel';
 import { useAuthViewModel } from '../../viewmodels/useAuthViewModel';
 import { Feather, FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -16,7 +17,7 @@ export default function PerfilDePapa() {
     const [saving, setSaving] = useState(false);
 
     // ViewModel logic
-    const { parentData, loading, fetchPerfil, actualizarPerfil } = usePadreViewModel();
+    const { parentData, loading, error, fetchPerfil, actualizarPerfil } = usePadreViewModel();
     const { logoutPadre } = useAuthViewModel();
 
     useEffect(() => {
@@ -87,6 +88,7 @@ export default function PerfilDePapa() {
 
     return (
         <View style={styles.container}>
+            <BackendState error={error} onRetry={fetchPerfil} />
             {/* Header Section with Decorative Circles */}
             <View style={styles.header}>
                 <View style={[styles.circle, styles.circlePink]} />

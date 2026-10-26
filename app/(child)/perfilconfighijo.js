@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Alert, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthRepository } from '../../repositories/AuthRepository';
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
@@ -12,7 +12,7 @@ export default function PerfilConfigHijo() {
 
 const handleLogoutPress = async () => {
         try {
-            await AsyncStorage.multiRemove(['child_token', 'child_data']);
+            await AuthRepository.clearAll();
             router.replace('/');
         } catch (error) {
             Alert.alert('Error', 'No se pudo cerrar sesión');

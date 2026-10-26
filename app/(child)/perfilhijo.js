@@ -1,3 +1,7 @@
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { obtenerResumenHijo } from '../../services/api';
+import { avatarImage } from '../../constants/avatars';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -11,43 +15,10 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PerfilHijo() {
     const router = useRouter();
-    const [childData, setChildData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const { tareas, fetchTareas } = useTareasHijoViewModel();
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchTareas();
-        }, [fetchTareas])
-    );
-
-    useEffect(() => {
-        const cargarPerfil = async () => {
-            try {
-                // Leer datos guardados en cache
-                const cachedData = await AuthRepository.getChildData();
-                if (cachedData) {
-                    setChildData(cachedData);
-                }
-
-                // Intentar obtener datos frescos del servidor
-                const token = await AuthRepository.getChildToken();
-                if (token) {
-                    const perfil = await obtenerPerfilHijo(token);
-                    setChildData(perfil);
-                    // Actualizar cache
-                    await AuthRepository.saveChildData(perfil);
-                }
-            } catch (error) {
-                // Si falla el API, se queda con los datos del cache
-                console.log('Error al cargar perfil:', error.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        cargarPerfil();
-    }, []);
+    const { data: resumen, loading, error, reload } = useBackendResource(obtenerResumenHijo);
+    const childData = resumen?.perfil;
+    const { tareas, fetchTareas, error: tareasError } = useTareasHijoViewModel();
+    useFocusEffect(useCallback(() => { fetchTareas(); }, [fetchTareas]));
 
     const pendientesCount = tareas.filter(t =>
         (t.assignments || []).some(a => a.status === 'assigned' || a.status === 'in_progress')
@@ -77,20 +48,20 @@ export default function PerfilHijo() {
 
                 <View style={styles.headerContent}>
                     <View style={styles.profileRow}>
-                        <View style={styles.avatarWrapper}>
+                        <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push('/personalizaravatar')}>
                             <Image
-                                source={require('../../assets/images/capicons.png')}
+                                source={avatarImage(childData?.avatar_id)}
                                 style={styles.avatar}
                                 resizeMode="contain"
                             />
-                        </View>
+                        </TouchableOpacity>
                         <View style={styles.nameBadge}>
                             <Text style={styles.nameText}>{childName}</Text>
                         </View>
                     </View>
 
                     <View style={styles.timeContainer}>
-                        <Text style={styles.timeLabel}>1h 20min</Text>
+                        <Text style={styles.timeLabel}>{resumen?.politica ? `${resumen.politica.available_screen_time_minutes} min` : 'Sin tiempo asignado'}</Text>
                         <Text style={styles.timeSubtext}>Límite de tiempo</Text>
                     </View>
                 </View>
@@ -101,6 +72,7 @@ export default function PerfilHijo() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
+                <BackendState loading={loading} error={error || tareasError} onRetry={() => { reload(); fetchTareas(); }} />
                 <View style={styles.grid}>
                     {/* Misiones Card */}
                     <TouchableOpacity
@@ -118,7 +90,7 @@ export default function PerfilHijo() {
                         onPress={() => router.push('/recompensashijo')}
                     >
                         <Text style={[styles.cardTitle, { color: '#DB2777' }]}>Recompensas</Text>
-                        <Text style={styles.cardSubtitle}>¡Has ganado 2 nuevas recompensas!</Text>
+                        <Text style={styles.cardSubtitle}>{childData?.llaves_disponibles ?? '—'} llaves disponibles</Text>
                         <View style={[styles.indicator, { backgroundColor: '#EC4899' }]} />
                     </TouchableOpacity>
 
@@ -128,12 +100,12 @@ export default function PerfilHijo() {
                         onPress={() => router.push('/logroshijo')}
                     >
                         <Text style={[styles.cardTitle, { color: '#2563EB' }]}>Logros</Text>
-                        <Text style={styles.cardSubtitle}>Haz desbloqueado un nuevo logro ¡Felicidades!</Text>
+                        <Text style={styles.cardSubtitle}>Consulta tus logros y objetivos</Text>
                         <View style={[styles.indicator, { backgroundColor: '#3B82F6' }]} />
                     </TouchableOpacity>
 
                     {/* Racha Card */}
-                    <TouchableOpacity style={[styles.card, { backgroundColor: '#F7FEE7' }]}>
+                    <TouchableOpacity style={[styles.card, { backgroundColor: '#F7FEE7' }]} onPress={() => router.push('/progresohijo')}>
                         <Text style={[styles.cardTitle, { color: '#65A30D' }]}>Racha</Text>
                         <View style={styles.rachaContainer}>
                             <Image
@@ -142,7 +114,7 @@ export default function PerfilHijo() {
                                 resizeMode="contain"
                             />
                             <View>
-                                <Text style={styles.rachaCount}>0</Text>
+                                <Text style={styles.rachaCount}>{resumen?.progreso.racha_actual ?? '—'}</Text>
                                 <Text style={styles.rachaLabel}>días</Text>
                             </View>
                         </View>

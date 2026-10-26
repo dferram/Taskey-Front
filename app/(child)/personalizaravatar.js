@@ -1,107 +1,54 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from "react";
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
-
+import { useState } from 'react';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BarraNavegacion from '../../components/BarraNavegacion';
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { Colors, Fonts, Shadows } from '../../styles/globalStyles';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const CATEGORIES = [
-    { id: 'heart', icon: 'heart', provider: 'Ionicons' },
-    { id: 'paw', icon: 'paw', provider: 'FontAwesome5' },
-    { id: 'shirt', icon: 'tshirt-crew', provider: 'MaterialCommunityIcons' },
-    { id: 'headphones', icon: 'headset', provider: 'Ionicons' },
-    { id: 'palette', icon: 'color-palette', provider: 'Ionicons' },
-];
-
+import { obtenerAvatares, obtenerResumenHijo, guardarAvatar } from '../../services/api';
+import { AuthRepository } from '../../repositories/AuthRepository';
+import { avatarImage } from '../../constants/avatars';
+const fetchAvatar = async token => {
+  const [catalogo, resumen] = await Promise.all([obtenerAvatares(token), obtenerResumenHijo(token)]);
+  return { catalogo, perfil: resumen.perfil };
+};
 export default function PersonalizarAvatar() {
-    const router = useRouter();
-    const [selectedCategory, setSelectedCategory] = useState('shirt');
-
-    const renderCategoryIcon = (cat) => {
-        const isActive = selectedCategory === cat.id;
-        const color = isActive ? '#7E22CE' : '#4C1D95';
-
-        switch (cat.provider) {
-            case 'Ionicons':
-                return <Ionicons name={cat.icon} size={30} color={color} />;
-            case 'FontAwesome5':
-                return <FontAwesome5 name={cat.icon} size={28} color={color} />;
-            case 'MaterialCommunityIcons':
-                return <MaterialCommunityIcons name={cat.icon} size={32} color={color} />;
-            default:
-                return null;
-        }
-    };
-
-    return (
-        <View style={styles.container}>
-            {/* Top Section: Avatar Preview */}
-            <View style={styles.previewSection}>
-                <View style={styles.topBar}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={32} color="black" />
-                    </TouchableOpacity>
-
-                    <View style={styles.keyBadge}>
-                        <Image
-                            source={require('../../assets/images/capillave.png')}
-                            style={styles.keyIcon}
-                            resizeMode="contain"
-                        />
-                        <Text style={styles.keyText}>500</Text>
-                    </View>
-                </View>
-
-                <View style={styles.avatarContainer}>
-                    <Image
-                        source={require('../../assets/images/capicons.png')}
-                        style={styles.avatarImage}
-                        resizeMode="contain"
-                    />
-                </View>
-            </View>
-
-            {/* Bottom Section: Customization Shop */}
-            <View style={styles.shopSection}>
-                {/* Categories Bar */}
-                <View style={styles.categoriesBar}>
-                    {CATEGORIES.map((cat) => (
-                        <TouchableOpacity
-                            key={cat.id}
-                            style={[styles.categoryBtn, selectedCategory === cat.id && styles.activeCategory]}
-                            onPress={() => setSelectedCategory(cat.id)}
-                        >
-                            {renderCategoryIcon(cat)}
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Grid of Items */}
-                <View style={styles.itemsGrid}>
-                    {/* Item 1 (Shirt from image) */}
-                    <View style={styles.gridItem}>
-                        <View style={styles.itemBox}>
-                            <FontAwesome5 name="tshirt" size={40} color="#00AEEF" />
-                        </View>
-                    </View>
-
-                    {/* Placeholder Items */}
-                    {[2, 3, 4, 5, 6].map((i) => (
-                        <View key={i} style={styles.gridItem}>
-                            <View style={styles.itemBox}>
-                                {i === 5 && (
-                                    <View style={styles.lockedBadge}>
-                                        <Text style={styles.lockedText}>M</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            </View>
-        </View>
-    );
+  const router = useRouter();
+  const { data, loading, error, reload } = useBackendResource(fetchAvatar);
+  const [saving, setSaving] = useState(false);
+  const selectAvatar = async id => {
+    setSaving(true);
+    try {
+      const token = await AuthRepository.getChildToken();
+      await guardarAvatar(token, id);
+      await reload();
+    } catch (err) { Alert.alert('No se pudo guardar', err.message); }
+    finally { setSaving(false); }
+  };
+  return <View style={styles.container}>
+    <View style={styles.previewSection}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><Ionicons name="chevron-back" size={32} /></TouchableOpacity>
+        {data && <Text style={styles.keyText}>{data.perfil.llaves_disponibles} llaves</Text>}
+      </View>
+      <BackendState loading={loading} error={error} onRetry={reload} />
+      {data && <View style={styles.avatarContainer}><Image source={avatarImage(data.perfil.avatar_id)} style={styles.avatarImage} resizeMode="contain" /></View>}
+    </View>
+    {data && <View style={styles.shopSection}>
+      <Text style={{ fontSize: 22, padding: 16 }}>Elige tu avatar</Text>
+      <Text style={{ paddingHorizontal: 16 }}>Avatares disponibles sin costo</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 16 }}>
+        {data.catalogo.map(item => <TouchableOpacity key={item.id} disabled={saving} onPress={() => selectAvatar(item.id)} accessibilityLabel={`Elegir ${item.nombre}`}
+          style={{ width: '48%', padding: 12, borderWidth: data.perfil.avatar_id === item.id ? 3 : 1, borderColor: '#7E22CE', borderRadius: 16, margin: '1%' }}>
+          <Image source={avatarImage(item.id)} style={{ width: 80, height: 80, alignSelf: 'center' }} resizeMode="contain" />
+          <Text style={{ textAlign: 'center' }}>{item.nombre}</Text>
+        </TouchableOpacity>)}
+      </View>
+      {saving && <Text style={{ textAlign: 'center' }}>Guardando…</Text>}
+    </View>}
+  </View>;
 }
 
 const styles = StyleSheet.create({

@@ -1,35 +1,25 @@
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { obtenerCatalogoApps } from '../../services/api';
 import { AntDesign, Entypo, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useState, useEffect, useCallback } from "react";
 import { usePoliciesViewModel } from '../../viewmodels/usePoliciesViewModel';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const INITIAL_APPS = [
-    { id: '1', name: 'YouTube', category: 'Entretenimiento', icon: 'youtube', type: 'FontAwesome5', color: '#FF0000' },
-    { id: '2', name: 'Netflix', category: 'Entretenimiento', icon: 'netflix', type: 'MaterialCommunityIcons', color: '#E50914' },
-    { id: '3', name: 'TikTok', category: 'Entretenimiento', icon: 'note', type: 'Entypo', color: '#000000' },
-    { id: '4', name: 'Disney+', category: 'Entretenimiento', icon: 'play-circle', type: 'MaterialCommunityIcons', color: '#006E99' },
-    { id: '5', name: 'HBO Max', category: 'Entretenimiento', icon: 'play-box', type: 'MaterialCommunityIcons', color: '#5821E4' },
-
-    { id: '6', name: 'Instagram', category: 'Redes sociales', icon: 'instagram', type: 'FontAwesome5', color: '#E1306C' },
-    { id: '7', name: 'Facebook', category: 'Redes sociales', icon: 'facebook', type: 'FontAwesome5', color: '#4267B2' },
-
-    { id: '8', name: 'Roblox', category: 'Juegos', icon: 'square-rounded', type: 'MaterialCommunityIcons', color: '#3B82F6' },
-    { id: '9', name: 'Subway Surfers', category: 'Juegos', icon: 'gamepad-variant', type: 'MaterialCommunityIcons', color: '#F59E0B' },
-    { id: '10', name: 'Geometry Dash', category: 'Juegos', icon: 'cube-outline', type: 'MaterialCommunityIcons', color: '#0369A1' },
-];
 
 export default function AppsRestringidas() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const childId = params.childId;
     
-    const { policy, fetchPolicy, updatePolicy } = usePoliciesViewModel();
-    const [apps, setApps] = useState(INITIAL_APPS.map(a => ({...a, restricted: false})));
+    const { policy, fetchPolicy, updatePolicy, error, loading } = usePoliciesViewModel();
+    const { data: catalogo, loading: loadingCatalogo, error: errorCatalogo, reload } = useBackendResource(obtenerCatalogoApps, 'parent');
+    const [apps, setApps] = useState([]);
+    const [saving, setSaving] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -40,20 +30,22 @@ export default function AppsRestringidas() {
     );
 
     useEffect(() => {
-        if (policy?.restricted_apps) {
+        if (catalogo && policy?.restricted_apps) {
             const restrictedIds = Array.isArray(policy.restricted_apps) ? policy.restricted_apps : [];
-            setApps(INITIAL_APPS.map(app => ({
+            setApps(catalogo.map(app => ({
                 ...app,
                 restricted: restrictedIds.includes(app.id)
             })));
         }
-    }, [policy]);
+    }, [policy, catalogo]);
 
     const handleBackPress = () => router.back();
 
     const toggleRestriction = async (id) => {
+        if (saving || !policy) return;
+        setSaving(true);
         const appToToggle = apps.find(a => a.id === id);
-        if(!appToToggle) return;
+        if(!appToToggle) { setSaving(false); return; }
         
         const newRestrictedState = !appToToggle.restricted;
         
@@ -73,27 +65,26 @@ export default function AppsRestringidas() {
                   restricted_apps: currentRestricted
              });
         } catch (e) {
-             console.log("Fallo al actualizar app rest", e);
+             Alert.alert("No se pudo guardar", e.message);
              // Rollback
              setApps(prev => prev.map(app =>
                  app.id === id ? { ...app, restricted: !newRestrictedState } : app
              ));
-        }
+        } finally { setSaving(false); }
     };
 
     const renderAppItem = (app) => (
         <View key={app.id} style={styles.appItem}>
             <View style={styles.appInfo}>
                 <View style={[styles.iconWrapper, { backgroundColor: app.color }]}>
-                    {app.type === 'FontAwesome5' && <FontAwesome5 name={app.icon} size={20} color="white" />}
-                    {app.type === 'MaterialCommunityIcons' && <MaterialCommunityIcons name={app.icon} size={20} color="white" />}
-                    {app.type === 'Entypo' && <Entypo name={app.icon} size={20} color="white" />}
+                    <Ionicons name="apps" size={20} color="#7E22CE" />
                 </View>
                 <Text style={styles.appName}>{app.name}</Text>
             </View>
 
             <TouchableOpacity
                 style={[styles.statusButton, app.restricted ? styles.btnRestricted : styles.btnRestrict]}
+                disabled={saving || loading}
                 onPress={() => toggleRestriction(app.id)}
             >
                 <Text style={styles.btnText}>
@@ -103,7 +94,7 @@ export default function AppsRestringidas() {
         </View>
     );
 
-    const categories = ['Entretenimiento', 'Redes sociales', 'Juegos'];
+    const categories = [...new Set((catalogo || []).map(app => app.category))];
 
     return (
         <View style={styles.container}>
@@ -119,6 +110,7 @@ export default function AppsRestringidas() {
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <BackendState loading={loading || loadingCatalogo} error={error || errorCatalogo || (!childId ? 'Selecciona un hijo' : null)} onRetry={() => { reload(); fetchPolicy(childId); }} />
                 <View style={styles.mainCard}>
                     {categories.map(category => (
                         <View key={category} style={styles.categorySection}>

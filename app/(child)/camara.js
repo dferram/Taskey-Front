@@ -1,8 +1,9 @@
+import { saveEvidenceDraft } from '../../storage/evidenceDraft';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Button, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Button, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Fonts } from "../../styles/globalStyles";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -41,15 +42,15 @@ export default function CameraScreen() {
     async function takePicture() {
         if (cameraRef.current) {
             try {
-                const photo = await cameraRef.current.takePictureAsync();
-                const currentParams = params;
-                // Navigate back with the photo uri and preserve original task details
-                router.replace({
-                    pathname: '/detalletarea',
-                    params: { ...currentParams, photoUri: photo.uri }
-                });
+                if (!params.id) throw new Error('No se encontró la asignación');
+                const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.35 });
+                if (!photo.base64) throw new Error('No se pudo preparar la foto');
+                const evidence = `data:image/jpeg;base64,${photo.base64}`;
+                if (evidence.length > 4000000) throw new Error('La foto es demasiado grande. Intenta tomar otra.');
+                saveEvidenceDraft(params.id, evidence);
+                router.back();
             } catch (e) {
-                console.log(e);
+                Alert.alert('No se pudo tomar la foto', e.message);
             }
         }
     }

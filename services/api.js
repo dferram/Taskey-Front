@@ -282,14 +282,14 @@ export async function cambiarEstadoAsignacion(token, assignmentId, estado) {
 }
 
 // Cambiar el estado de una asignacion (uso del hijo: en progreso/completada)
-export async function cambiarEstadoAsignacionHijo(token, assignmentId, estado) {
+export async function cambiarEstadoAsignacionHijo(token, assignmentId, estado, evidencia_foto) {
     const response = await fetch(`${API_URL}/tareas/asignaciones/${assignmentId}/estado/child`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ status: estado })
+        body: JSON.stringify({ status: estado, ...(evidencia_foto ? { evidencia_foto } : {}) })
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Error al actualizar el estado de la tarea");
@@ -374,3 +374,27 @@ export async function marcarNotificacionesLeidas(token, notificacionIds) {
     if (!response.ok) throw new Error(data.detail || "Error al marcar como leídas");
     return data;
 }
+
+export async function apiRequest(token, path, options = {}) {
+    if (!API_URL) throw new Error('No está configurada la dirección del servidor');
+    if (!token) throw new Error('Inicia sesión para continuar');
+    const response = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
+    });
+    if (response.status === 204) return null;
+    const data = await response.json();
+    if (!response.ok) {
+        const detail = data.detail;
+        throw new Error(typeof detail === 'string' ? detail : 'No se pudo completar la solicitud');
+    }
+    return data;
+}
+export const desasignarTarea = (token, id) => apiRequest(token, `/tareas/asignaciones/${id}`, { method: 'DELETE' });
+export const obtenerResumenHijo = token => apiRequest(token, '/actividad/mi-resumen');
+export const obtenerRecompensasHijo = token => apiRequest(token, '/actividad/mis-recompensas');
+export const obtenerLogrosHijo = token => apiRequest(token, '/actividad/mis-logros');
+export const obtenerProgresoMensual = token => apiRequest(token, '/actividad/mi-progreso-mensual');
+export const obtenerAvatares = token => apiRequest(token, '/actividad/avatares');
+export const guardarAvatar = (token, avatar_id) => apiRequest(token, '/actividad/mi-avatar', { method: 'PUT', body: JSON.stringify({ avatar_id }) });
+export const obtenerCatalogoApps = token => apiRequest(token, '/policies/catalogo/apps');

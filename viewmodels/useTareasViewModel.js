@@ -17,6 +17,7 @@ export const useTareasViewModel = () => {
       const data = await TareasRepository.getTareas(token);
       setTareas(data);
     } catch (err) {
+      setTareas([]);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -123,7 +124,17 @@ export const useTareasViewModel = () => {
     }
   };
 
+  const desasignarTarea = async (id) => {
+    try {
+      const token = await AuthRepository.getParentToken();
+      await TareasRepository.desasignarTarea(token, id);
+      setTareas(prev => prev.map(t => ({ ...t, assignments: (t.assignments || []).filter(a => a.id !== id) })));
+      return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+  };
+
   return {
+    desasignarTarea,
     tareas,
     loading,
     error,

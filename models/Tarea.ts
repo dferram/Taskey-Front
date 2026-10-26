@@ -5,6 +5,7 @@ export interface TaskAssignment {
   status: string;
   assigned_at: string;
   completed_at?: string;
+  evidencia_foto?: string;
 }
 
 export interface Tarea {
@@ -20,5 +21,5 @@ export interface Tarea {
   created_at?: string;
   updated_at?: string;
   assignments?: TaskAssignment[];
-  color?: string; // Solo frontend
+  color?: string;
 }

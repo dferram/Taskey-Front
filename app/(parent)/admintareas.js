@@ -1,7 +1,8 @@
+import BackendState from '../../components/BackendState';
 import { Feather, FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from "react";
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 import { useTareasViewModel } from "../../viewmodels/useTareasViewModel";
@@ -14,7 +15,7 @@ export default function AdminTareas() {
     const params = useLocalSearchParams();
     
     // ViewModels offline first
-    const { tareas: tasks, fetchTareas, eliminarTarea, asignarTarea, cambiarEstadoAsignacion, loading: loadingTasks } = useTareasViewModel();
+    const { tareas: tasks, fetchTareas, eliminarTarea, asignarTarea, cambiarEstadoAsignacion, desasignarTarea, error, loading: loadingTasks } = useTareasViewModel();
     const { hijos, fetchHijos } = useHijosViewModel();
 
     const [expandedTask, setExpandedTask] = useState(null);
@@ -25,6 +26,9 @@ export default function AdminTareas() {
     const [assignModalVisible, setAssignModalVisible] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [targetUser, setTargetUser] = useState('');
+    const [targetAssignment, setTargetAssignment] = useState(null);
+    const [evidence, setEvidence] = useState(null);
+    const [busy, setBusy] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -50,9 +54,10 @@ export default function AdminTareas() {
         setDeleteModalVisible(true);
     };
 
-    const openUnassignAlert = (task, user) => {
+    const openUnassignAlert = (task, user, assignment) => {
         setSelectedTask(task);
         setTargetUser(user);
+        setTargetAssignment(assignment);
         setUnassignModalVisible(true);
         setExpandedTask(null); 
     };
@@ -63,28 +68,28 @@ export default function AdminTareas() {
         setExpandedTask(null);
     };
 
-    const handleAssignProfile = async (childId) => {
-        if (selectedTask) {
-            await asignarTarea(selectedTask.id, childId);
-            setAssignModalVisible(false);
-        }
+    const runAction = async (action, onSuccess) => {
+        if (busy) return;
+        setBusy(true);
+        try {
+            const result = await action();
+            if (result?.success) onSuccess?.();
+            else Alert.alert('No se pudo guardar', result?.error || 'Intenta de nuevo');
+        } catch (err) { Alert.alert('No se pudo guardar', err.message); }
+        finally { setBusy(false); }
     };
-
-    const handleDeleteConfirm = async () => {
-        if (selectedTask) {
-            await eliminarTarea(selectedTask.id);
-            setDeleteModalVisible(false);
-            setSelectedTask(null);
-        }
-    };
-
-    const handleUnassignConfirm = () => {
-        // Mock desasignar since we don't have endpoint
-        setUnassignModalVisible(false);
-    };
-
-    const handleVerify = async (assignment) => {
-        await cambiarEstadoAsignacion(assignment.id, 'verified');
+    const handleAssignProfile = childId => selectedTask && runAction(
+        () => asignarTarea(selectedTask.id, childId), () => setAssignModalVisible(false));
+    const handleDeleteConfirm = () => selectedTask && runAction(
+        () => eliminarTarea(selectedTask.id), () => { setDeleteModalVisible(false); setSelectedTask(null); });
+    const handleUnassignConfirm = () => targetAssignment && runAction(
+        () => desasignarTarea(targetAssignment.id), () => setUnassignModalVisible(false));
+    const handleVerify = assignment => {
+        if (assignment.evidencia_foto) setEvidence(assignment);
+        else Alert.alert('Sin evidencia', 'Esta tarea no tiene una foto guardada. ¿Quieres aprobarla?', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Aprobar', onPress: () => runAction(() => cambiarEstadoAsignacion(assignment.id, 'verified')) }
+        ]);
     };
 
     // Helper functions for UI rendering mapping
@@ -98,6 +103,15 @@ export default function AdminTareas() {
 
     return (
         <View style={styles.container}>
+            <Modal visible={!!evidence} transparent onRequestClose={() => setEvidence(null)}>
+                <View style={{ flex: 1, backgroundColor: '#000C', justifyContent: 'center', padding: 24 }}>
+                    {evidence && <Image source={{ uri: evidence.evidencia_foto }} style={{ width: '100%', height: '65%' }} resizeMode="contain" />}
+                    <TouchableOpacity disabled={busy} onPress={() => runAction(() => cambiarEstadoAsignacion(evidence.id, 'verified'), () => setEvidence(null))} style={{ backgroundColor: 'white', padding: 18, marginTop: 12 }}>
+                        <Text>{busy ? 'Guardando…' : 'Aprobar misión'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity disabled={busy} onPress={() => setEvidence(null)} style={{ padding: 18 }}><Text style={{ color: 'white' }}>Cerrar</Text></TouchableOpacity>
+                </View>
+            </Modal>
             {/* Header Content */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Administrar tareas</Text>
@@ -120,6 +134,8 @@ export default function AdminTareas() {
                 </TouchableOpacity>
 
                 {/* Lista de Tareas */}
+                <BackendState loading={loadingTasks} error={error} onRetry={fetchTareas} />
+                {!loadingTasks && !error && tasks.length === 0 && <Text>No hay tareas. Crea la primera.</Text>}
                 {tasks.map((task) => {
                     const assignedNames = getAssignedNames(task.assignments);
                     return (
@@ -202,7 +218,7 @@ export default function AdminTareas() {
                                                         {item.assignment?.status === 'verified' && (
                                                             <Ionicons name="checkmark-done-circle" size={22} color="#9CA3AF" />
                                                         )}
-                                                        <TouchableOpacity onPress={() => openUnassignAlert(task, item.name)}>
+                                                        <TouchableOpacity onPress={() => openUnassignAlert(task, item.name, item.assignment)}>
                                                             <View style={styles.dash} />
                                                         </TouchableOpacity>
                                                     </View>

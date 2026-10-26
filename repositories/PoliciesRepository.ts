@@ -18,13 +18,7 @@ export const PoliciesRepository = {
 
       return policyAPI;
     } catch (error) {
-      console.warn("Fallo API obtenerPolitica, fallback local:", error);
-      const localDataStr = await AsyncStorage.getItem(STORAGE_KEYS.POLICIES);
-      if (localDataStr) {
-        const localData = JSON.parse(localDataStr);
-        return localData[childId] || null;
-      }
-      return null;
+      throw error;
     }
   },
 

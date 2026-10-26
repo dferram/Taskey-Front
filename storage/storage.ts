@@ -25,7 +25,7 @@ export const storage = {
       return JSON.parse(jsonValue) as T;
     } catch (error) {
       console.error(`[Storage Error] Fallo al leer la key: ${key}`, error);
-      return null;
+      throw error;
     }
   },
   // Serializa el valor pasado a JSON y lo guarda en AsyncStorage.  

@@ -20,13 +20,10 @@ describe('TareasRepository - lado hijo', () => {
     expect(result).toEqual(tareas);
   });
 
-  it('getTareasHijo cae al cache local si la API falla', async () => {
+  it('getTareasHijo informa el error de API sin devolver datos locales', async () => {
     api.listarTareasHijo.mockRejectedValue(new Error('network down'));
 
-    // Sin nada en cache previamente, debe devolver []
-    const result = await TareasRepository.getTareasHijo('child-token');
-
-    expect(result).toEqual([]);
+    await expect(TareasRepository.getTareasHijo('child-token')).rejects.toThrow('network down');
   });
 
   it('cambiarEstadoAsignacionHijo delega en la API con los parametros correctos', async () => {
@@ -34,7 +31,7 @@ describe('TareasRepository - lado hijo', () => {
 
     const result = await TareasRepository.cambiarEstadoAsignacionHijo('child-token', 'a1', 'completed');
 
-    expect(api.cambiarEstadoAsignacionHijo).toHaveBeenCalledWith('child-token', 'a1', 'completed');
+    expect(api.cambiarEstadoAsignacionHijo).toHaveBeenCalledWith('child-token', 'a1', 'completed', undefined);
     expect(result.status).toBe('completed');
   });
 

@@ -17,6 +17,7 @@ export const useHijosViewModel = () => {
       const data = await HijosRepository.getHijos(token);
       setHijos(data);
     } catch (err) {
+      setHijos([]);
       setError(err.message);
     } finally {
       setLoading(false);

@@ -1,4 +1,5 @@
 export interface DevicePolicy {
+  sleep_enabled: boolean;
   id: string;
   child_id: string;
   available_screen_time_minutes: number;

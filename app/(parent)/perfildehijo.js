@@ -1,3 +1,6 @@
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { obtenerCatalogoApps } from '../../services/api';
 import { useHijosViewModel } from '../../viewmodels/useHijosViewModel';
 import { useTareasViewModel } from '../../viewmodels/useTareasViewModel';
 import { usePoliciesViewModel } from '../../viewmodels/usePoliciesViewModel';
@@ -13,31 +16,24 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Colores para los avatares
 const AVATAR_COLORS = ['#DDD6FE', '#FEF3C7', '#DCFCE7', '#FDE68A', '#BFDBFE', '#FBCFE8'];
 
-// Apps restringidas de ejemplo por hijo
-const DEFAULT_RESTRICTED_APPS = [
-    { id: '1', name: 'YouTube', icon: 'youtube', type: 'FontAwesome5', color: '#FF0000' },
-    { id: '2', name: 'TikTok', icon: 'note', type: 'Entypo', color: '#000000' },
-    { id: '3', name: 'Netflix', icon: 'netflix', type: 'MaterialCommunityIcons', color: '#E50914' },
-    { id: '4', name: 'Roblox', icon: 'square-rounded', type: 'MaterialCommunityIcons', color: '#3B82F6' },
-];
-
 const renderAppIcon = (app) => {
     if (app.type === 'FontAwesome5') return <FontAwesome5 name={app.icon} size={16} color="white" />;
     if (app.type === 'MaterialCommunityIcons') return <MaterialCommunityIcons name={app.icon} size={16} color="white" />;
     if (app.type === 'Entypo') return <Entypo name={app.icon} size={16} color="white" />;
-    return null;
+    return <Ionicons name="apps" size={16} color="#7E22CE" />;
 };
 
 export default function PerfilDeHijo() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { data: catalogo, error: errorCatalogo, reload: reloadCatalogo } = useBackendResource(obtenerCatalogoApps, 'parent');
     const [activeTab, setActiveTab] = useState('Semana');
     const [selectedChildId, setSelectedChildId] = useState(params.id || null);
     
     // ViewModel logic
-    const { hijos: children, loading: loadingHijos, fetchHijos } = useHijosViewModel();
-    const { tareas, fetchTareas, loading: loadingTareas } = useTareasViewModel();
-    const { policy, fetchPolicy, loading: loadingPolicy } = usePoliciesViewModel();
+    const { hijos: children, loading: loadingHijos, error: hijosError, fetchHijos } = useHijosViewModel();
+    const { tareas, fetchTareas, loading: loadingTareas, error: tareasError } = useTareasViewModel();
+    const { policy, fetchPolicy, loading: loadingPolicy, error: policyError } = usePoliciesViewModel();
 
     useFocusEffect(
         useCallback(() => {
@@ -76,7 +72,13 @@ export default function PerfilDeHijo() {
     );
 
     // Filtrar tareas asignadas al hijo seleccionado
-    const childTasks = tareas.filter(t => t.assignments?.some(a => a.child_id === currentChild?.id));
+    const childTasks = tareas.filter(t => {
+        if (!t.assignments?.some(a => a.child_id === currentChild?.id)) return false;
+        const start = new Date(); start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+        const date = t.due_date ? new Date(`${t.due_date}T00:00:00`) : null;
+        return activeTab === 'Anteriores' ? date && date < start : !date || date >= start;
+    });
 
     const handleBackPress = () => router.back();
     const handleAssignTask = () => router.push({
@@ -143,6 +145,7 @@ export default function PerfilDeHijo() {
 
     return (
         <View style={styles.container}>
+                <BackendState error={errorCatalogo || hijosError || tareasError || policyError} onRetry={() => { reloadCatalogo(); fetchHijos(); fetchTareas(); if (currentChild?.id) fetchPolicy(currentChild.id); }} />
             {/* Header Section with Decorative Circles and Switcher */}
             <View style={styles.header}>
                 <View style={[styles.circle, styles.circlePink]} />
@@ -232,7 +235,7 @@ export default function PerfilDeHijo() {
                     <View style={styles.appsContainer}>
                         {(policy?.restricted_apps && Array.isArray(policy.restricted_apps) && policy.restricted_apps.length > 0) ? (
                             policy.restricted_apps.map((appId, idx) => {
-                                const app = DEFAULT_RESTRICTED_APPS.find(a => a.id === appId);
+                                const app = (catalogo || []).find(a => a.id === appId);
                                 return app ? (
                                     <View key={appId} style={[styles.appIcon, { backgroundColor: app.color }]}>
                                         {renderAppIcon(app)}
@@ -251,10 +254,10 @@ export default function PerfilDeHijo() {
                 <View style={styles.sleepCard}>
                     <View style={styles.sleepInfo}>
                         <Text style={styles.timeLabel}>De:</Text>
-                        <Text style={styles.timeValue}>{policy?.sleep_start_time ? policy.sleep_start_time.substring(0,5) : '--:--'}</Text>
+                        <Text style={styles.timeValue}>{policy?.sleep_enabled !== false && policy?.sleep_start_time ? policy.sleep_start_time.substring(0,5) : '--:--'}</Text>
                         <Text style={[styles.timeLabel, { marginLeft: 15 }]}>Hasta:</Text>
-                        <Text style={styles.timeValue}>{policy?.sleep_end_time ? policy.sleep_end_time.substring(0,5) : '--:--'}</Text>
-                        <Text style={styles.daysText}>L - D</Text>
+                        <Text style={styles.timeValue}>{policy?.sleep_enabled !== false && policy?.sleep_end_time ? policy.sleep_end_time.substring(0,5) : '--:--'}</Text>
+                        <Text style={styles.daysText}>{policy?.sleep_enabled !== false ? policy?.sleep_days : 'Sin horario activo'}</Text>
                     </View>
                     <TouchableOpacity
                         style={styles.editSleepButton}

@@ -8,7 +8,7 @@ jest.mock('../../viewmodels/useTareasHijoViewModel');
 function hoyISO(offsetDias = 0) {
   const fecha = new Date();
   fecha.setDate(fecha.getDate() + offsetDias);
-  return fecha.toISOString().slice(0, 10);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 }
 
 describe('<TareasHijo />', () => {

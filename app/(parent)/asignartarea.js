@@ -1,69 +1,47 @@
+import BackendState from '../../components/BackendState';
+import { useTareasViewModel } from '../../viewmodels/useTareasViewModel';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { obtenerHijo } from '../../services/api';
+import { avatarImage } from '../../constants/avatars';
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from "react";
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from "react";
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const ALL_TASKS_DATA = [
-    {
-        id: '1',
-        title: 'Tender la cama',
-        description: 'Tender la cama correctamente y acomodar los peluches',
-        deadline: 'Hoy 6:00pm',
-        duration: '35min',
-        keys: 25,
-        color: '#FF7E45', // Orangeish
-        isAssigned: true
-    },
-    {
-        id: '2',
-        title: 'Hacer ejercicio',
-        description: 'Hacer al menos 30 minutos de ejercicio al aire libre',
-        deadline: '26/sep/2025 12:00pm',
-        duration: '1hr',
-        keys: 30,
-        color: '#00AEEB', // Cyan
-        isAssigned: false
-    },
-    {
-        id: '3',
-        title: 'Tarea de la escuela',
-        description: 'Terminar todas las tareas de la semana que dejaron en la escuela',
-        deadline: '28/sep/2025 9:30pm',
-        duration: '2hrs',
-        keys: 50,
-        color: '#AAD62D', // Green
-        isAssigned: false
-    },
-    {
-        id: '4',
-        title: 'Pasear a Toby',
-        description: 'Sacar a Toby a pasear junto con papá y tus hermanos',
-        deadline: '18/sep/2025 6:00pm',
-        duration: '45min',
-        keys: 20,
-        color: '#FF009B', // Pink
-        isAssigned: false
-    }
-];
-
 export default function AsignarTarea() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const [tasks, setTasks] = useState(ALL_TASKS_DATA);
-
-    const childName = params.name || 'Cons';
-    const childAvatar = params.avatar || require('../../assets/images/capicons.png');
-
+    const { tareas, loading, error, fetchTareas, asignarTarea, desasignarTarea } = useTareasViewModel();
+    const [saving, setSaving] = useState(false);
+    const childFetcher = useCallback(token => {
+        if (!params.id) throw new Error('Selecciona un hijo');
+        return obtenerHijo(token, params.id);
+    }, [params.id]);
+    const { data: child, error: childError, reload } = useBackendResource(childFetcher, 'parent');
+    useFocusEffect(useCallback(() => { fetchTareas(); }, [fetchTareas]));
+    const tasks = tareas.map(task => ({
+        ...task, keys: task.reward_keys ?? 0,
+        duration: `${task.duration_hours ?? 0}h ${task.duration_minutes ?? 0}min`,
+        deadline: [task.due_date, task.due_time].filter(Boolean).join(' ') || 'Sin fecha',
+        assignment: task.assignments?.find(a => a.child_id === params.id),
+        isAssigned: task.assignments?.some(a => a.child_id === params.id),
+    }));
+    const childName = child?.nombre || 'Hijo';
+    const childAvatar = avatarImage(child?.avatar_id);
     const handleBackPress = () => router.back();
-
-    const handleToggleAssign = (taskId) => {
-        setTasks(prev => prev.map(task =>
-            task.id === taskId ? { ...task, isAssigned: !task.isAssigned } : task
-        ));
+    const handleToggleAssign = async taskId => {
+        if (saving || !child) return;
+        const task = tasks.find(t => t.id === taskId);
+        setSaving(true);
+        const result = task.assignment
+            ? await desasignarTarea(task.assignment.id)
+            : await asignarTarea(taskId, child.id);
+        setSaving(false);
+        if (!result.success) Alert.alert('No se pudo guardar', result.error);
     };
 
     return (
@@ -94,6 +72,8 @@ export default function AsignarTarea() {
             </View>
 
             <ScrollView style={styles.taskList} showsVerticalScrollIndicator={false}>
+                <BackendState loading={loading} error={error || childError} onRetry={() => { fetchTareas(); reload(); }} />
+                {!loading && !error && tasks.length === 0 && <Text>No hay tareas disponibles. Crea una desde Administrar tareas.</Text>}
                 {tasks.map((task) => (
                     <View key={task.id} style={styles.taskCard}>
                         <Text style={[styles.taskTitle, { color: task.color }]}>{task.title}</Text>
@@ -117,6 +97,7 @@ export default function AsignarTarea() {
                                     styles.assignButton,
                                     task.isAssigned ? styles.assignedBtn : styles.unassignedBtn
                                 ]}
+                                disabled={saving || !child}
                                 onPress={() => handleToggleAssign(task.id)}
                             >
                                 <Text style={styles.assignBtnText}>

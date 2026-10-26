@@ -13,9 +13,7 @@ export const PadreRepository = {
       await storage.setItem(STORAGE_KEYS.PARENT_DATA, apiData);
       return apiData;
     } catch (error) {
-      // Si la API falla, devuelve los datos del cache local
-      console.log('[PadreRepository] Fallo la API, leyendo de Storage Local');
-      return await storage.getItem<Padre>(STORAGE_KEYS.PARENT_DATA);
+      throw error;
     }
   },
 

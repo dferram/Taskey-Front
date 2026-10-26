@@ -1,3 +1,4 @@
+import { registerForPushNotifications } from '../../hooks/usePushNotifications';
 import { loginHijo } from '../../services/api';
 import { AuthRepository } from '../../repositories/AuthRepository';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ export default function LoginHijo() {
             await AuthRepository.saveChildToken(data.access_token);
             await AuthRepository.saveChildData(data.child);
 
+            void registerForPushNotifications();
             router.replace('/perfilhijo');
         } catch (error) {
             // Si hay un error, muestra un alert con el error

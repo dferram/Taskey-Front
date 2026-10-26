@@ -1,7 +1,8 @@
+import BackendState from '../../components/BackendState';
 import { usePadreViewModel } from '../../viewmodels/usePadreViewModel';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
@@ -15,17 +16,17 @@ export default function PrincipalPapa() {
     const router = useRouter();
     
     // ViewModel logic
-    const { parentData, loading, fetchPerfil } = usePadreViewModel();
+    const { parentData, loading, error, fetchPerfil } = usePadreViewModel();
 
     // Obtener datos del padre al montar el componente
-    useEffect(() => {
+    useFocusEffect(useCallback(() => {
         fetchPerfil().catch((err) => {
              // Si el error es de token invalido, redirigimos
              if (err?.message?.includes('No token')) {
                  router.replace('/loginpapa');
              }
         });
-    }, [fetchPerfil]); 
+    }, [fetchPerfil]));
 
     // Extraer hijos del parentData o array vacio si no hay
     const hijos = parentData?.hijos || [];
@@ -54,6 +55,7 @@ export default function PrincipalPapa() {
 
     return (
         <View style={styles.container}>
+            <BackendState error={error} onRetry={fetchPerfil} />
             {/* Header Section with Decorative Circles */}
             <View style={styles.header}>
                 <View style={[styles.circle, styles.circlePink]} />

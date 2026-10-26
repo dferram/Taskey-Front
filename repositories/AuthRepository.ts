@@ -6,6 +6,7 @@ import { Hijo } from '../models/Hijo';
 
 export const AuthRepository = {
   saveParentToken: async (token: string): Promise<void> => {
+    await storage.clearAll();
     await storage.setItem(STORAGE_KEYS.PARENT_TOKEN, token);
   },
   getParentToken: async (): Promise<string | null> => {
@@ -26,6 +27,7 @@ export const AuthRepository = {
 
   // Métodos de autenticación de hijos para simetría
   saveChildToken: async (token: string): Promise<void> => {
+    await storage.clearAll();
     await storage.setItem(STORAGE_KEYS.CHILD_TOKEN, token);
   },
   getChildToken: async (): Promise<string | null> => {

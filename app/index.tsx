@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthRepository } from '../repositories/AuthRepository';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -11,13 +11,13 @@ export default function Index() {
     useEffect(() => {
         const checkToken = async () => {
             try {
-                const parentToken = await AsyncStorage.getItem('parent_token');
+                const parentToken = await AuthRepository.getParentToken();
                 if (parentToken) {
                     setUserType('parent');
                     return;
                 }
 
-                const childToken = await AsyncStorage.getItem('child_token');
+                const childToken = await AuthRepository.getChildToken();
                 if (childToken) {
                     setUserType('child');
                     return;

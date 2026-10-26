@@ -1,3 +1,4 @@
+import BackendState from '../../components/BackendState';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from "react";
@@ -91,7 +92,7 @@ export default function TareasHijo() {
     const [filter, setFilter] = useState('Todas');
     const [selectedDayId, setSelectedDayId] = useState(1);
     const [isFilterVisible, setIsFilterVisible] = useState(false);
-    const { tareas, loading, fetchTareas } = useTareasHijoViewModel();
+    const { tareas, loading, error, fetchTareas } = useTareasHijoViewModel();
 
     useFocusEffect(
         useCallback(() => {
@@ -205,6 +206,7 @@ export default function TareasHijo() {
                 </View>
 
                 {/* Lista de Tareas */}
+                <BackendState error={error} onRetry={fetchTareas} />
                 <View style={styles.taskList}>
                     {loading && misiones.length === 0 ? (
                         <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 30 }} />

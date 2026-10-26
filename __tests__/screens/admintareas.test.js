@@ -29,7 +29,7 @@ describe('<AdminTareas /> - verificacion de tareas', () => {
           reward_keys: 25,
           duration_hours: 0,
           duration_minutes: 10,
-          assignments: [{ id: 'a1', child_id: 'child-1', status: 'completed' }],
+          assignments: [{ id: 'a1', child_id: 'child-1', status: 'completed', evidencia_foto: 'data:image/jpeg;base64,YWJj' }],
         },
       ],
       fetchTareas: jest.fn(),
@@ -52,6 +52,8 @@ describe('<AdminTareas /> - verificacion de tareas', () => {
       await fireEvent.press(screen.getByTestId('verify-a1'));
     });
 
+    expect(cambiarEstadoAsignacion).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('Aprobar misión'));
     expect(cambiarEstadoAsignacion).toHaveBeenCalledWith('a1', 'verified');
   });
 

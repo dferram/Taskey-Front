@@ -2,7 +2,7 @@ import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, Modal } from "react-native";
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, Modal } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 import { useTareasViewModel } from "../../viewmodels/useTareasViewModel";
@@ -21,7 +21,7 @@ export default function NuevaTarea() {
     const params = useLocalSearchParams();
     const isEditMode = params.mode === 'edit';
 
-    const { crearTarea, editarTarea } = useTareasViewModel();
+    const { crearTarea, editarTarea, loading } = useTareasViewModel();
 
     const [selectedColor, setSelectedColor] = useState(params.color || Colors.green);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -75,6 +75,8 @@ export default function NuevaTarea() {
     };
 
     const handleCreatePress = async () => {
+        if (loading) return;
+        if (!title.trim()) { Alert.alert('Falta el título', 'Escribe el nombre de la tarea.'); return; }
         let hour24 = parseInt(selectedHour);
         if (ampm === 'PM' && hour24 < 12) hour24 += 12;
         if (ampm === 'AM' && hour24 === 12) hour24 = 0;
@@ -83,7 +85,7 @@ export default function NuevaTarea() {
         const dueDateFormatted = hasSelectedDate ? `${formattedYear}-${formattedMonth}-${formattedDay}` : null;
 
         const payload = {
-            title: title || 'Nueva Tarea',
+            title: title.trim(),
             description: description || '',
             due_date: dueDateFormatted,
             due_time: hasSelectedDate ? dueTimeFormatted : null,
@@ -93,11 +95,8 @@ export default function NuevaTarea() {
             color: selectedColor
         };
 
-        if (isEditMode) {
-            await editarTarea(params.id, payload);
-        } else {
-            await crearTarea(payload);
-        }
+        const result = isEditMode ? await editarTarea(params.id, payload) : await crearTarea(payload);
+        if (!result.success) { Alert.alert('No se pudo guardar', result.error); return; }
 
         router.replace('/admintareas');
     };
@@ -408,7 +407,7 @@ export default function NuevaTarea() {
                     {/* Crear Tarea Button */}
                     <TouchableOpacity
                         style={[styles.createButton, isEditMode && { backgroundColor: '#4C1D95' }]}
-                        onPress={handleCreatePress}
+                        disabled={loading} onPress={handleCreatePress}
                     >
                         <Text style={styles.createButtonText}>
                             {isEditMode ? 'Guardar cambios' : 'Crear tarea'}

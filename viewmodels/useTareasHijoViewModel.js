@@ -17,19 +17,20 @@ export const useTareasHijoViewModel = () => {
       const data = await TareasRepository.getTareasHijo(token);
       setTareas(data);
     } catch (err) {
+      setTareas([]);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const cambiarEstado = async (assignmentId, estado) => {
+  const cambiarEstado = async (assignmentId, estado, evidencia) => {
     setError(null);
     try {
       const token = await AuthRepository.getChildToken();
       if (!token) throw new Error('No hay sesión de hijo activa');
 
-      const data = await TareasRepository.cambiarEstadoAsignacionHijo(token, assignmentId, estado);
+      const data = await TareasRepository.cambiarEstadoAsignacionHijo(token, assignmentId, estado, evidencia);
 
       // Actualizacion optimista en memoria
       setTareas(prev => prev.map(t => ({

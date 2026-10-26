@@ -15,9 +15,7 @@ export const NotificacionesRepository = {
             await storage.setItem(STORAGE_KEYS.NOTIFICATIONS, data);
             return data;
         } catch (error) {
-            console.log('[NotificacionesRepository] API falló, leyendo de caché local.');
-            const cached = await storage.getItem<Notificacion[]>(STORAGE_KEYS.NOTIFICATIONS);
-            return cached || [];
+            throw error;
         }
     },
 
@@ -32,8 +30,9 @@ export const NotificacionesRepository = {
         await storage.setItem(STORAGE_KEYS.NOTIFICATIONS, updated);
     },
 
-    registrarDeviceToken: async (token: string, deviceToken: string, plataforma: 'android' | 'ios'): Promise<void> => {
-        const savedToken = await storage.getItem<string>(STORAGE_KEYS.DEVICE_TOKEN);
+    registrarDeviceToken: async (token: string, deviceToken: string, plataforma: 'android' | 'ios' | 'expo'): Promise<void> => {
+        const registrationKey = `${STORAGE_KEYS.DEVICE_TOKEN}_${plataforma}`;
+        const savedToken = await storage.getItem<string>(registrationKey);
         
         // Solo registrar si el token cambió o no fue registrado antes
         if (savedToken === deviceToken) {
@@ -42,7 +41,7 @@ export const NotificacionesRepository = {
         }
 
         await registrarDeviceToken(token, deviceToken, plataforma);
-        await storage.setItem(STORAGE_KEYS.DEVICE_TOKEN, deviceToken);
+        await storage.setItem(registrationKey, deviceToken);
         console.log('[NotificacionesRepository] Device token registrado exitosamente.');
     },
 };

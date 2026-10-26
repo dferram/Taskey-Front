@@ -1,7 +1,8 @@
+import BackendState from '../../components/BackendState';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useState, useCallback, useEffect } from "react";
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, ActivityIndicator } from "react-native";
+import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, ActivityIndicator } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { usePoliciesViewModel } from '../../viewmodels/usePoliciesViewModel';
 import BarraNavegacion from "../../components/BarraNavegacion";
@@ -18,7 +19,7 @@ export default function HorarioDeSueno() {
     const childName = params.name || 'Hijo';
     const childAvatar = params.avatar || require('../../assets/images/capicons.png');
 
-    const { policy, fetchPolicy, updatePolicy, loading } = usePoliciesViewModel();
+    const { policy, fetchPolicy, updatePolicy, loading, error } = usePoliciesViewModel();
     const [schedules, setSchedules] = useState([]);
     
     useFocusEffect(
@@ -29,6 +30,7 @@ export default function HorarioDeSueno() {
 
     useEffect(() => {
         if (policy) {
+            if (policy.sleep_enabled === false) { setSchedules([]); return; }
             setSchedules([{
                 id: policy.id || '1',
                 startH: policy.sleep_start_time ? policy.sleep_start_time.split(':')[0] : '21',
@@ -97,6 +99,7 @@ export default function HorarioDeSueno() {
     };
 
     const addNewSchedule = () => {
+        if (schedules.length > 0 || !policy) return;
         const newId = Date.now().toString();
         setSchedules([...schedules, {
             id: newId,
@@ -111,10 +114,12 @@ export default function HorarioDeSueno() {
 
     const handleSave = async (id) => {
         const sched = schedules.find(s => s.id === id);
-        if (!sched) return;
+        if (!sched || loading) return;
+        if (!sched.days.length) { Alert.alert('Selecciona un día', 'Elige al menos un día para guardar el horario.'); return; }
         
         try {
             await updatePolicy(childId, {
+                sleep_enabled: true,
                 sleep_start_time: `${sched.startH}:${sched.startM}:00`,
                 sleep_end_time: `${sched.endH}:${sched.endM}:00`,
                 sleep_days: sched.days.length > 0 ? sched.days.join(',') : 'Lun,Mar,Mie,Jue,Vie,Sab,Dom'
@@ -123,7 +128,7 @@ export default function HorarioDeSueno() {
                 s.id === id ? { ...s, expanded: false } : s
             ));
         } catch (error) {
-            console.error("Fallo actualizacion", error);
+            Alert.alert("No se pudo guardar", error.message);
         }
     };
 
@@ -132,12 +137,12 @@ export default function HorarioDeSueno() {
         setShowDeleteModal(true);
     };
 
-    const confirmDelete = () => {
-        if (scheduleToDelete) {
-            setSchedules(schedules.filter(s => s.id !== scheduleToDelete.id));
-            setShowDeleteModal(false);
-            setScheduleToDelete(null);
-        }
+    const confirmDelete = async () => {
+        if (!scheduleToDelete || loading) return;
+        try {
+            await updatePolicy(childId, { sleep_enabled: false });
+            setSchedules([]); setShowDeleteModal(false); setScheduleToDelete(null);
+        } catch (err) { Alert.alert('No se pudo eliminar', err.message); }
     };
 
     return (
@@ -168,14 +173,15 @@ export default function HorarioDeSueno() {
                     <Text style={styles.mainTitle}>Editar horario de sueño</Text>
                 </View>
 
-                <TouchableOpacity style={styles.addNewBtn} onPress={addNewSchedule} activeOpacity={0.8}>
+                <BackendState loading={loading} error={error || (!childId ? 'Selecciona un hijo' : null)} onRetry={() => fetchPolicy(childId)} />
+                {schedules.length === 0 && policy && <TouchableOpacity style={styles.addNewBtn} onPress={addNewSchedule} activeOpacity={0.8}>
                     <View style={styles.addNewIconWrapper}>
                         <MaterialCommunityIcons name="moon-waning-crescent" size={20} color="white" />
                         <Text style={styles.zzz}>zZZ</Text>
                     </View>
                     <Text style={styles.addNewText}>Asignar nuevo horario</Text>
                     <Ionicons name="add-circle" size={18} color="#FFB800" />
-                </TouchableOpacity>
+                </TouchableOpacity>}
 
                 {schedules.length === 0 ? (
                     <Text style={styles.emptyText}>No hay ningún horario de sueño asignado a este perfil</Text>
@@ -245,7 +251,7 @@ export default function HorarioDeSueno() {
                                     </View>
 
                                     <View style={styles.actionRow}>
-                                        <TouchableOpacity style={styles.saveBtn} onPress={() => handleSave(item.id)}>
+                                        <TouchableOpacity style={styles.saveBtn} disabled={loading} onPress={() => handleSave(item.id)}>
                                             <Text style={styles.saveBtnText}>Guardar</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.deleteBtn} onPress={() => openDeleteModal(item)}>

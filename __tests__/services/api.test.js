@@ -84,3 +84,12 @@ describe('services/api.js - hijo', () => {
     );
   });
 });
+
+
+it('envía evidencia persistible junto con el estado', async () => {
+  const { cambiarEstadoAsignacionHijo } = require('../../services/api');
+  mockFetchOnce({ id: 'a1', status: 'completed' });
+  await cambiarEstadoAsignacionHijo('token', 'a1', 'completed', 'data:image/jpeg;base64,YWJj');
+  const [, options] = global.fetch.mock.calls[0];
+  expect(JSON.parse(options.body)).toEqual({ status: 'completed', evidencia_foto: 'data:image/jpeg;base64,YWJj' });
+});

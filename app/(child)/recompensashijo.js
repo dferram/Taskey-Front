@@ -1,189 +1,43 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from "react";
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import BarraNavegacion from "../../components/BarraNavegacion";
-import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
-
+import { useState } from 'react';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BarraNavegacion from '../../components/BarraNavegacion';
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { Colors, Fonts, Shadows } from '../../styles/globalStyles';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const DUMMY_REWARDS = [
-    {
-        id: '1',
-        title: 'Tender cama',
-        keys: '+35',
-        minutes: '+25 minutos',
-        timeAgo: 'Hace 45 minutos',
-        color: '#FF8A3D'
-    },
-    {
-        id: '2',
-        title: 'Hacer ejercicio',
-        keys: '+35',
-        minutes: '+25 minutos',
-        timeAgo: 'Hace 45 minutos',
-        color: '#00AEEF'
-    },
-    {
-        id: '3',
-        title: 'Tarea de Español',
-        keys: '+20',
-        minutes: '+15 minutos',
-        timeAgo: 'Hace 1 hora',
-        color: '#ADD633'
-    },
-    {
-        id: '4',
-        title: 'Tarea de Matemáticas',
-        keys: '+20',
-        minutes: '+10 minutos',
-        timeAgo: 'Hace 2 horas',
-        color: '#FF009B'
-    }
-];
-
+import { RecompensasRepository } from '../../repositories/RecompensasRepository';
 export default function RecompensasHijo() {
-    const router = useRouter();
-    const [isPopupVisible, setIsPopupVisible] = useState(false);
-
-    useEffect(() => {
-        // Mostrar la alerta al entrar
-        const timer = setTimeout(() => {
-            setIsPopupVisible(true);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, []);
-
-    const handleBackPress = () => router.back();
-
-    return (
-        <View style={styles.container}>
-            {/* Header Decorativo */}
-            <View style={styles.headerDecor}>
-                <View style={[styles.circle, styles.circlePink]} />
-                <View style={[styles.circle, styles.circleCyan]} />
-                <View style={[styles.circle, styles.circleGreen]} />
-            </View>
-
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                <View style={styles.titleRow}>
-                    <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={32} color="black" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Recompensas</Text>
-                </View>
-
-                {/* Summary Row */}
-                <View style={styles.summaryRow}>
-                    <View style={styles.summaryBoxTime}>
-                        <View style={styles.iconCircleTime}>
-                            <Ionicons name="time" size={24} color="#00AEEF" />
-                            <View style={styles.checkMini}>
-                                <Ionicons name="checkmark" size={10} color="white" />
-                            </View>
-                        </View>
-                        <Text style={styles.summaryTextTime}>50 min</Text>
-                    </View>
-
-                    <View style={styles.summaryBoxKeys}>
-                        <Image
-                            source={require('../../assets/images/capillave.png')}
-                            style={styles.keyIconSummary}
-                            resizeMode="contain"
-                        />
-                        <Text style={styles.summaryTextKeys}>160</Text>
-                    </View>
-                </View>
-
-                {/* Rewards List */}
-                <View style={styles.rewardList}>
-                    {DUMMY_REWARDS.map((reward) => (
-                        <View key={reward.id} style={styles.rewardCard}>
-                            <Text style={[styles.rewardTitle, { color: reward.color }]}>{reward.title}</Text>
-
-                            <View style={styles.rewardDetails}>
-                                <View style={styles.detailItem}>
-                                    <Image
-                                        source={require('../../assets/images/capillave.png')}
-                                        style={styles.detailIcon}
-                                        resizeMode="contain"
-                                    />
-                                    <Text style={styles.detailText}>{reward.keys}</Text>
-                                </View>
-
-                                <View style={styles.detailItem}>
-                                    <View style={styles.iconCircleTimeSmall}>
-                                        <Ionicons name="time" size={16} color="#00AEEF" />
-                                        <View style={styles.checkMiniSmall}>
-                                            <Ionicons name="checkmark" size={6} color="white" />
-                                        </View>
-                                    </View>
-                                    <Text style={styles.detailText}>{reward.minutes}</Text>
-                                </View>
-                            </View>
-
-                            <Text style={styles.timeAgoText}>{reward.timeAgo}</Text>
-                        </View>
-                    ))}
-                </View>
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
-
-            {/* Modal de ¡Felicidades! */}
-            <Modal
-                transparent={true}
-                visible={isPopupVisible}
-                animationType="fade"
-                onRequestClose={() => setIsPopupVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Image
-                            source={require('../../assets/images/capicons.png')}
-                            style={styles.congratsImage}
-                            resizeMode="contain"
-                        />
-                        <Text style={styles.congratsTitle}>¡Felicidades!</Text>
-
-                        <View style={styles.popupRewardRow}>
-                            <View style={[styles.rewardStrip, { backgroundColor: '#4C1D95' }]}>
-                                <Text style={styles.rewardStripText}>+20 Keys</Text>
-                                <Image
-                                    source={require('../../assets/images/capillave.png')}
-                                    style={styles.keyIconPopup}
-                                    resizeMode="contain"
-                                />
-                            </View>
-
-                            <View style={[styles.rewardStrip, { backgroundColor: '#7E22CE' }]}>
-                                <Text style={styles.rewardStripText}>+30 Minutos</Text>
-                                <View style={styles.iconCircleTimePopup}>
-                                    <Ionicons name="time" size={24} color="#00AEEF" />
-                                    <View style={styles.checkMiniPopup}>
-                                        <Ionicons name="checkmark" size={12} color="white" />
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.acceptButton}
-                            onPress={() => setIsPopupVisible(false)}
-                        >
-                            <Text style={styles.acceptButtonText}>Aceptar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            <BarraNavegacion activeTab="inicio" userType="hijo" />
+  const router = useRouter();
+  const { data, loading, error, reload } = useBackendResource(RecompensasRepository.getRecompensas);
+  return <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.titleRow}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><Ionicons name="chevron-back" size={32} /></TouchableOpacity>
+        <Text style={styles.headerTitle}>Recompensas</Text>
+      </View>
+      <BackendState loading={loading} error={error} onRetry={reload} />
+      {data && <>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryBoxTime}><Text style={styles.summaryTextTime}>{data.minutos} min</Text></View>
+          <View style={styles.summaryBoxKeys}><Text style={styles.summaryTextKeys}>{data.llaves} llaves</Text></View>
         </View>
-    );
+        <View style={styles.rewardList}>
+          {data.historial.length === 0 && <Text>Aún no tienes misiones aprobadas. Tus recompensas aparecerán aquí.</Text>}
+          {data.historial.map(reward => <View key={reward.id} style={styles.rewardCard}>
+            <Text style={styles.rewardTitle}>{reward.title}</Text>
+            <View style={styles.rewardDetails}>
+              <Text style={styles.detailText}>+{reward.keys} llaves</Text>
+              <Text style={styles.detailText}>+{reward.minutes} minutos</Text>
+            </View>
+            <Text style={styles.timeAgoText}>{reward.completed_at ? new Date(reward.completed_at).toLocaleString('es-MX') : ''}</Text>
+          </View>)}
+        </View>
+      </>}
+    </ScrollView>
+    <BarraNavegacion activeTab="inicio" userType="hijo" />
+  </View>;
 }
 
 const styles = StyleSheet.create({

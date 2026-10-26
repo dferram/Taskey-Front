@@ -11,14 +11,6 @@ export const usePadreViewModel = () => {
     setLoading(true);
     setError(null);
     try {
-      // Intenta cargar desde el cache local para mostrar la UI rápido
-      const cachedData = await AuthRepository.getParentData();
-      if (cachedData) {
-        setParentData(cachedData);
-        // Detiene la carga para que la UI se muestre desde el cache
-        setLoading(false); 
-      }
-
       const token = await AuthRepository.getParentToken();
       if (!token) throw new Error('No token found');
 
@@ -26,6 +18,7 @@ export const usePadreViewModel = () => {
       const data = await PadreRepository.getPerfil(token);
       setParentData(data);
     } catch (err) {
+      setParentData(null);
       setError(err.message);
     } finally {
       setLoading(false);

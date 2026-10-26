@@ -1,3 +1,4 @@
+import BackendState from '../../components/BackendState';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -38,7 +39,7 @@ function formatearFecha(fechaStr) {
 
 export default function NotificacionesHijo() {
     const router = useRouter();
-    const { notificaciones, loading, fetchNotificaciones, marcarLeidas } = useNotificacionesViewModel();
+    const { notificaciones, loading, error, fetchNotificaciones, marcarLeidas } = useNotificacionesViewModel();
 
     useFocusEffect(
         useCallback(() => {
@@ -54,6 +55,7 @@ export default function NotificacionesHijo() {
 
     return (
         <View style={styles.container}>
+            <BackendState error={error} onRetry={fetchNotificaciones} />
             <ScrollView
                 style={styles.content}
                 showsVerticalScrollIndicator={false}

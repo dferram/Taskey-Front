@@ -1,3 +1,6 @@
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { obtenerProgresoMensual } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -6,16 +9,17 @@ import { Colors, Fonts, Shadows } from "../../styles/globalStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const BarChart = ({ data, yLabel }) => {
-    const maxVal = 10;
+const BarChart = ({ data, yLabel, percentage = false }) => {
+    const maxVal = percentage ? 100 : Math.max(5, ...data.map(item => item.value));
+    const ticks = Array.from({ length: 6 }, (_, i) => Math.round(maxVal * (5 - i) / 5));
     return (
         <View style={styles.chartCard}>
             <Text style={styles.yLabelTextTop}>{yLabel}</Text>
             <View style={styles.chartContent}>
                 {/* Y Axis Labels */}
                 <View style={styles.yAxis}>
-                    {[10, 8, 6, 4, 2, 0].map(val => (
-                        <Text key={val} style={styles.axisText}>{val}</Text>
+                    {ticks.map((val, index) => (
+                        <Text key={index} style={styles.axisText}>{val}</Text>
                     ))}
                 </View>
                 {/* Chart Bars */}
@@ -51,17 +55,14 @@ const BarChart = ({ data, yLabel }) => {
 export default function MiProgresoHijo() {
     const router = useRouter();
 
-    const cumplimientoData = [
-        { label: 'Ago', value: 8, color: '#00AEEF' },
-        { label: 'Sep', value: 6, color: '#7E22CE' },
-        { label: 'Oct', value: 9.5, color: '#FF009B' },
-    ];
-
-    const intensidadData = [
-        { label: 'Ago', value: 4, color: '#00AEEF' },
-        { label: 'Sep', value: 6, color: '#7E22CE' },
-        { label: 'Oct', value: 8.5, color: '#FF009B' },
-    ];
+    const { data, loading, error, reload } = useBackendResource(obtenerProgresoMensual);
+    const colors = ['#00AEEF', '#7E22CE', '#FF009B'];
+    const points = field => (data || []).map((item, index) => ({
+        label: new Date(`${item.mes}-15T12:00:00`).toLocaleDateString('es-MX', { month: 'short' }),
+        value: item[field], color: colors[index % colors.length]
+    }));
+    const cumplimientoData = points('cumplimiento');
+    const intensidadData = points('completadas');
 
     return (
         <View style={styles.container}>
@@ -77,11 +78,15 @@ export default function MiProgresoHijo() {
                     <Text style={styles.headerTitle}>Mi Progreso</Text>
                 </View>
 
+                <BackendState loading={loading} error={error} onRetry={reload} />
+                {data && <>
                 <Text style={styles.sectionTitle}>Cumplimiento</Text>
-                <BarChart data={cumplimientoData} yLabel="Porcentaje (%)" />
+                <BarChart data={cumplimientoData} yLabel="Porcentaje (%)" percentage />
 
                 <Text style={[styles.sectionTitle, { marginTop: 40 }]}>Intensidad</Text>
-                <BarChart data={intensidadData} yLabel="Tareas Realizadas" />
+                <BarChart data={intensidadData} yLabel="Tareas aprobadas" />
+                <Text>Por mes de asignación. Cumplimiento: tareas aprobadas sobre tareas asignadas.</Text>
+                </>}
 
                 <View style={{ height: 120 }} />
             </ScrollView>

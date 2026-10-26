@@ -1,6 +1,10 @@
+import BackendState from '../../components/BackendState';
+import { useBackendResource } from '../../hooks/useBackendResource';
+import { listarTareasHijo } from '../../services/api';
+import { getEvidenceDraft, removeEvidenceDraft } from '../../storage/evidenceDraft';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import BarraNavegacion from "../../components/BarraNavegacion";
 import { useTareasHijoViewModel } from "../../viewmodels/useTareasHijoViewModel";
@@ -13,27 +17,30 @@ export default function DetalleTarea() {
     const params = useLocalSearchParams();
     const { cambiarEstado } = useTareasHijoViewModel();
 
+    const fetchDetail = useCallback(async token => {
+        if (!params.id) throw new Error('No se encontró la asignación');
+        const tareas = await listarTareasHijo(token);
+        const tarea = tareas.find(t => t.assignments?.some(a => a.id === params.id));
+        if (!tarea) throw new Error('La tarea ya no está asignada a tu perfil');
+        return { tarea, asignacion: tarea.assignments.find(a => a.id === params.id) };
+    }, [params.id]);
+    const { data, loading, error, reload } = useBackendResource(fetchDetail);
     const task = {
-        title: params.title || 'Misión',
-        description: params.description || '',
-        deadline: params.deadline || 'Sin fecha',
-        color: params.color || '#00AEEF',
-        keys: params.keys || '20',
-        duration: params.duration || '15 minutos'
+        title: data?.tarea.title || '', description: data?.tarea.description || '',
+        deadline: data?.tarea.due_date || 'Sin fecha', color: '#00AEEF',
+        keys: data?.tarea.reward_keys ?? 0,
+        duration: `${data?.tarea.duration_hours ?? 0} h ${data?.tarea.duration_minutes ?? 0} min`,
     };
-
-    const [hasEvidence, setHasEvidence] = useState(!!params.photoUri);
-    const [evidenceUri, setEvidenceUri] = useState(params.photoUri || null);
-    const [isSent, setIsSent] = useState(params.status === 'completed' || params.status === 'verified');
+    const [evidenceUri, setEvidenceUri] = useState(null);
+    const [isSent, setIsSent] = useState(false);
     const [sending, setSending] = useState(false);
-
-    // Sync evidence state if param changes
+    const verified = data?.asignacion.status === 'verified';
     useEffect(() => {
-        if (params.photoUri) {
-            setEvidenceUri(params.photoUri);
-            setHasEvidence(true);
+        if (data) {
+            setEvidenceUri(getEvidenceDraft(params.id) || data.asignacion.evidencia_foto || null);
+            setIsSent(['completed', 'verified'].includes(data.asignacion.status));
         }
-    }, [params.photoUri]);
+    }, [data, params.id]);
 
     const handleBackPress = () => router.back();
 
@@ -46,7 +53,7 @@ export default function DetalleTarea() {
 
     const handleDeletePhoto = () => {
         setEvidenceUri(null);
-        setHasEvidence(false);
+        removeEvidenceDraft(params.id);
     };
 
     const handleSend = async () => {
@@ -54,34 +61,36 @@ export default function DetalleTarea() {
             Alert.alert("Falta evidencia", "Por favor, toma una foto de la evidencia antes de enviar.");
             return;
         }
-        if (!params.id) {
-            setIsSent(true);
-            return;
-        }
+        if (!params.id || !data) return;
         setSending(true);
-        const result = await cambiarEstado(params.id, 'completed');
+        const result = await cambiarEstado(params.id, 'completed', evidenceUri);
         setSending(false);
         if (result.success) {
+            removeEvidenceDraft(params.id);
             setIsSent(true);
+            await reload();
         } else {
             Alert.alert("Error", result.error || "No se pudo enviar la misión, intenta de nuevo.");
         }
     };
 
     const handleCancelSend = async () => {
-        if (!params.id) {
-            setIsSent(false);
-            return;
-        }
+        if (!params.id || !data || verified) return;
         setSending(true);
         const result = await cambiarEstado(params.id, 'in_progress');
         setSending(false);
         if (result.success) {
             setIsSent(false);
+            await reload();
         } else {
             Alert.alert("Error", result.error || "No se pudo anular el envío, intenta de nuevo.");
         }
     };
+
+    if (loading || error || !data) return <View style={styles.container}>
+        <TouchableOpacity onPress={handleBackPress} style={{ padding: 24 }}><Text>Volver</Text></TouchableOpacity>
+        <BackendState loading={loading} error={error} onRetry={reload} />
+    </View>;
 
     return (
         <View style={styles.container}>
@@ -128,13 +137,14 @@ export default function DetalleTarea() {
                 <View style={styles.evidenceHeader}>
                     <Text style={styles.evidenceLabel}>Evidencia</Text>
                     <Text style={[styles.statusLabel, isSent && { color: '#7E22CE' }]}>
-                        {isSent ? 'Completada' : 'Pendiente'}
+                        {verified ? 'Aprobada' : isSent ? 'En revisión' : 'Pendiente'}
                     </Text>
                 </View>
 
                 {isSent ? (
                     <View style={styles.sentContent}>
-                        <Text style={styles.sentSubtext}>Solicitud de confirmación enviada</Text>
+                        <Text style={styles.sentSubtext}>{verified ? 'Tu padre aprobó esta misión' : 'Solicitud de confirmación enviada'}</Text>
+                        {!verified && <>
                         <TouchableOpacity
                             style={styles.cancelSendButton}
                             onPress={handleCancelSend}
@@ -142,7 +152,7 @@ export default function DetalleTarea() {
                             disabled={sending}
                         >
                             <Text style={styles.cancelSendButtonText}>{sending ? 'Anulando...' : 'Anular envío'}</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity></>}
                     </View>
                 ) : (
                     <>
@@ -176,7 +186,7 @@ export default function DetalleTarea() {
                             ]}
                             onPress={handleSend}
                             activeOpacity={0.8}
-                            disabled={sending}
+                            disabled={sending || !evidenceUri}
                         >
                             <Text style={[
                                 styles.sendButtonText,

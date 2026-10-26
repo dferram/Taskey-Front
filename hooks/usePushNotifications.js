@@ -6,7 +6,8 @@ import { AuthRepository } from '../repositories/AuthRepository';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
     }),
@@ -31,10 +32,10 @@ export const usePushNotifications = () => {
 
         return () => {
             if (notificationListener.current) {
-                Notifications.removeNotificationSubscription(notificationListener.current);
+                notificationListener.current.remove();
             }
             if (responseListener.current) {
-                Notifications.removeNotificationSubscription(responseListener.current);
+                responseListener.current.remove();
             }
         };
     }, []);
@@ -70,7 +71,7 @@ export const registerForPushNotifications = async () => {
         }
 
         // Obtener token de autenticación (padre)
-        const authToken = await AuthRepository.getParentToken();
+        const authToken = (await AuthRepository.getParentToken()) || (await AuthRepository.getChildToken());
         if (!authToken) {
             console.warn('[Push] No hay sesión activa para registrar los tokens.');
             return;
